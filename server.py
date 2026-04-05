@@ -1,6 +1,26 @@
 import os
 import threading
 import time
+import contextlib
+
+# Helper: load a SB3 model always on CPU (safe for inference even if it was
+# saved from a GPU run). Only used in the two inference endpoints below;
+# training uses the device chosen by the user.
+@contextlib.contextmanager
+def _cpu_load_ctx():
+    """Temporarily patch torch.load so every tensor maps to CPU."""
+    import torch
+    _orig = torch.load
+    def _patched(f, *a, **kw):
+        kw["map_location"] = torch.device("cpu")
+        kw.pop("weights_only", None)
+        return _orig(f, *a, **kw)
+    torch.load = _patched
+    try:
+        yield
+    finally:
+        torch.load = _orig
+
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -34,6 +54,7 @@ class TrainConfig(BaseModel):
     clip_range: float = 0.2
     resume: bool = True
     device: str = "cuda"
+    n_envs: int = 4
 
 class AgentRunConfig(BaseModel):
     agent_type: str
@@ -42,6 +63,7 @@ def run_training_background(config: TrainConfig):
     try:
         from stable_baselines3 import PPO
         from stable_baselines3.common.callbacks import BaseCallback
+        from stable_baselines3.common.vec_env import SubprocVecEnv
         from gym_wrapper import HumanLifeGymEnv
         
         class DashboardCallback(BaseCallback):
@@ -52,13 +74,21 @@ def run_training_background(config: TrainConfig):
             def _on_step(self) -> bool:
                 if training_state["stop_flag"]:
                     return False
-                self.current_reward += float(self.locals["rewards"][0])
-                if self.locals["dones"]:
-                    grade = self.training_env.env_method("get_grade")[0]
+                
+                rewards = self.locals.get("rewards", [0])
+                dones = self.locals.get("dones", [False])
+                
+                self.current_reward += sum(rewards) / len(rewards)
+                
+                if any(dones):
+                    grades = self.training_env.env_method("get_grade")
+                    idx = list(dones).index(True)
+                    grade = grades[idx]
+                    
                     training_state["episode_grades"].append(grade)
                     training_state["episode_rewards"].append(self.current_reward)
                     self.current_reward = 0.0
-                    training_state["current_episode"] += 1
+                    training_state["current_episode"] += sum(dones) # Progress faster because multiple envs
                     training_state["best_grade"] = max(training_state["best_grade"], grade)
                     l10_g = training_state["episode_grades"][-10:]
                     l10_r = training_state["episode_rewards"][-10:]
@@ -66,9 +96,16 @@ def run_training_background(config: TrainConfig):
                     training_state["current_avg_reward"] = sum(l10_r)/len(l10_r)
                     training_state["elapsed_seconds"] = int(time.time() - training_state["start_time"])
                 return True
+
+        def make_env():
+            def _init():
+                return HumanLifeGymEnv()
+            return _init
                 
-        env = HumanLifeGymEnv()
+        env = SubprocVecEnv([make_env() for _ in range(max(1, config.n_envs))])
         cb = DashboardCallback()
+        
+        n_net = dict(pi=[512, 512, 256], vf=[512, 512, 256])
         
         if config.resume and os.path.exists("trained_agent.zip"):
             model = PPO.load("trained_agent", env=env, device=config.device, custom_objects={
@@ -85,11 +122,17 @@ def run_training_background(config: TrainConfig):
                 policy="MlpPolicy", env=env, learning_rate=config.learning_rate,
                 n_steps=config.n_steps, batch_size=config.batch_size, n_epochs=config.n_epochs,
                 gamma=config.gamma, clip_range=config.clip_range, ent_coef=config.ent_coef,
+                policy_kwargs=dict(net_arch=n_net),
                 verbose=0, device=config.device
             )
             
         model.learn(total_timesteps=config.total_episodes * 168, callback=cb, reset_num_timesteps=not config.resume)
         model.save("trained_agent")
+        # Re-save on CPU so inference endpoints never hit a CUDA arch mismatch
+        import torch as _t
+        _cpu_model = type(model).load("trained_agent", device="cpu",
+                                      custom_objects={"lr_schedule": lambda _: config.learning_rate})
+        _cpu_model.save("trained_agent")
         training_state["is_complete"] = True
     except Exception as e:
         training_state["error"] = str(e)
@@ -280,13 +323,29 @@ def run_baseline():
         )
     }
 
+
 try:
     import torch
-    global_cuda_avail = torch.cuda.is_available()
-    global_gpu_name = torch.cuda.get_device_name(0) if global_cuda_avail else "None"
-except:
-    global_cuda_avail = False
-    global_gpu_name = "None"
+    _gpu_detected = torch.cuda.is_available()
+    if _gpu_detected:
+        _gpu_name   = torch.cuda.get_device_name(0)
+        _cc         = torch.cuda.get_device_capability(0)   # e.g. (6, 1)
+        _cc_str     = f"{_cc[0]}.{_cc[1]}"
+        # PyTorch cu118 runs CUDA kernels on ≥ sm_60
+        _gpu_usable = _cc[0] >= 6
+    else:
+        _gpu_name   = "None"
+        _cc_str     = ""
+        _gpu_usable = False
+    global_cuda_avail  = _gpu_detected and _gpu_usable
+    global_gpu_name    = _gpu_name
+    global_gpu_cc      = _cc_str
+    global_gpu_usable  = _gpu_usable
+except Exception:
+    global_cuda_avail  = False
+    global_gpu_name    = "None"
+    global_gpu_cc      = ""
+    global_gpu_usable  = False
 
 @app.get("/")
 def root():
@@ -295,23 +354,35 @@ def root():
 
 @app.get("/system/info")
 def system_info():
-    info = {"cpu_load": 0.0, "ram_usage_pct": 0.0, "cuda_available": global_cuda_avail, "gpu_name": global_gpu_name}
+    info = {
+        "cpu_load": 0.0, "ram_usage_pct": 0.0,
+        "cuda_available": global_cuda_avail,
+        "gpu_name":    global_gpu_name,
+        "gpu_cc":      global_gpu_cc,
+        "gpu_usable":  global_gpu_usable,
+        "gpu_util_pct": 0.0,
+        "vram_used_mb": 0.0,
+        "vram_total_mb": 0.0
+    }
+    
     try:
-        import os
-        if hasattr(os, "getloadavg"):
-            info["cpu_load"] = round(os.getloadavg()[0], 2)
+        import psutil
+        info["cpu_load"] = psutil.cpu_percent(interval=None)
+        info["ram_usage_pct"] = psutil.virtual_memory().percent
     except: pass
         
-    try:
-        with open('/proc/meminfo', 'r') as f:
-            lines = f.readlines()
-            total = int(lines[0].split()[1])
-            free = int(lines[1].split()[1])
-            buffers = int(lines[3].split()[1])
-            cached = int(lines[4].split()[1])
-            used = total - free - buffers - cached
-            info["ram_usage_pct"] = round((used / total) * 100, 1)
-    except: pass
+    if global_gpu_usable:
+        try:
+            import subprocess
+            out = subprocess.check_output(["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"], encoding="utf-8")
+            info["gpu_util_pct"] = float(out.strip())
+            
+            import torch
+            free, total = torch.cuda.mem_get_info()
+            info["vram_total_mb"] = int(total / (1024 * 1024))
+            info["vram_used_mb"]  = int((total - free) / (1024 * 1024))
+        except: pass
+        
     return info
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -399,8 +470,9 @@ def agent_run(req: AgentRunConfig):
     if req.agent_type == "trained":
         if not os.path.exists("trained_agent.zip"):
             from fastapi import HTTPException
-            raise HTTPException(status_code=400, detail="No trained model found")
-        model = PPO.load("trained_agent", device="cuda")
+            raise HTTPException(status_code=400, detail="No trained model found. Run training first.")
+        with _cpu_load_ctx():
+            model = PPO.load("trained_agent", device="cpu")
         gym_env = HumanLifeGymEnv()
         obs_array = gym_env._obs_to_array(flat_obs)
 
@@ -421,10 +493,12 @@ def agent_run(req: AgentRunConfig):
         
         result = local_env.step(action)
         if len(result) == 5:
-            flat_obs, reward, terminated, truncated, _ = result
+            flat_obs, reward, terminated, truncated, info = result
             done = terminated or truncated
         else:
-            flat_obs, reward, done, _ = result
+            flat_obs, reward, done, info = result
+            
+        events = info.get("events_fired", [])
             
         if req.agent_type == "trained":
             obs_array = gym_env._obs_to_array(flat_obs)
@@ -449,7 +523,8 @@ def agent_run(req: AgentRunConfig):
                 "social_bonds": flat_obs.get("social_bonds"),
                 "money": flat_obs.get("money"),
                 "sleep_debt": flat_obs.get("sleep_debt")
-            }
+            },
+            "events": events
         })
         
         if done: break
@@ -478,7 +553,8 @@ def agent_compare():
         if agent_type == "trained" and os.path.exists("trained_agent.zip"):
             from stable_baselines3 import PPO
             from gym_wrapper import HumanLifeGymEnv
-            model = PPO.load("trained_agent", device="cuda")
+            with _cpu_load_ctx():
+                model = PPO.load("trained_agent", device="cpu")
             gym_env = HumanLifeGymEnv()
             obs_array = gym_env._obs_to_array(flat_obs)
             

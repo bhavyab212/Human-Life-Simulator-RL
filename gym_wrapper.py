@@ -20,17 +20,22 @@ class HumanLifeGymEnv(gym.Env):
             "all_nighter", "seek_peer_notes", "study_with_music", "pull_a_prank",
             "do_nothing", "half_study", "micro_socialize", "binge_eat",
             "nap_in_class", "plagiarize", "withdraw_from_course",
-            "help_a_friend_in_crisis"
+            "help_a_friend_in_crisis",
+            "apply_for_internship", "part_time_study_break", "visit_campus_clinic",
+            "attend_club_meeting", "buy_groceries", "stress_eat_late_night",
+            "all_day_grind", "sleep_schedule_reset", "visit_library",
+            "ask_professor_for_help", "self_care_day", "pull_all_nighter_group",
+            "online_course", "freelance_work", "decline_social_invite"
         ]
 
         # Discrete action space
         self.action_space = spaces.Discrete(len(self.action_list))
 
-        # Observation space: 31 normalized dimensions
+        # Observation space: 35 normalized dimensions
         self.observation_space = spaces.Box(
             low=0.0,
             high=1.0,
-            shape=(31,),
+            shape=(35,),
             dtype=np.float32
         )
 
@@ -75,7 +80,11 @@ class HumanLifeGymEnv(gym.Env):
             float(obs_dict["caffeine_crash_imminent"]),
             1.0 if obs_dict["toxic_friend"] is not None else 0.0,
             exam_in_days / 7.0,
-            assgn_due
+            assgn_due,
+            obs_dict["financial_stress"] / 100.0,
+            obs_dict["physical_fitness"] / 100.0,
+            float(obs_dict["scenario_active"]),
+            obs_dict["scenario_domain_idx"] / 10.0
         ], dtype=np.float32)
         
         return np.clip(obs_array, 0.0, 1.0)

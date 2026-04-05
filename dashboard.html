@@ -2,797 +2,813 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Human Life Simulator Dashboard</title>
-    <!-- Fonts -->
+    <title>Human Life Simulator — RL Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Lucide Icons -->
-    <script src="https://cdn.jsdelivr.net/npm/lucide@latest"></script>
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg: #0f1117;
-            --surface: #1a1d27;
-            --surface-2: #222533;
-            --border: #2e3148;
-            --text-primary: #e8eaf0;
-            --text-muted: #7b80a0;
-            --green: #22c55e;
-            --blue: #3b82f6;
-            --orange: #f97316;
-            --red: #ef4444;
-            --purple: #a855f7;
-            --yellow: #eab308;
+            --bg: #0f1117; --surface: #1a1d27; --surface2: #222533;
+            --border: #2e3148; --text: #e8eaf0; --muted: #7b80a0;
+            --green: #22c55e; --blue: #3b82f6; --orange: #f97316;
+            --red: #ef4444; --purple: #a855f7; --yellow: #eab308;
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-        }
+        /* Header */
+        .hdr { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0.875rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .hdr-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .hdr-right { display: flex; gap: 1.5rem; align-items: center; }
+        .sys-pill { font-size: 0.8rem; padding: 4px 14px; border-radius: 999px; }
+        .sys-pill-ok  { color: var(--green);  background: rgba(34,197,94,0.12); }
+        .sys-pill-warn{ color: var(--orange); background: rgba(249,115,22,0.12); }
+        .sys-pill-off { color: var(--blue);   background: rgba(59,130,246,0.12); }
+        .env-tag { font-size: 0.85rem; color: var(--muted); }
 
-        body {
-            background-color: var(--bg);
-            color: var(--text-primary);
-            min-height: 100vh;
-        }
+        /* Tabs */
+        .tabs { display: flex; gap: 0.25rem; padding: 0 1.5rem; background: var(--surface); border-bottom: 1px solid var(--border); }
+        .tab { background: none; border: none; color: var(--muted); padding: 0.9rem 1rem; cursor: pointer; font-size: 0.875rem; font-weight: 500; position: relative; border-bottom: 2px solid transparent; transition: color 0.15s; }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
 
-        .header {
-            background-color: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .tab-nav {
-            display: flex;
-            gap: 1rem;
-            padding: 0 2rem;
-            border-bottom: 1px solid var(--border);
-            background-color: var(--surface);
-        }
-
-        .tab-btn {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            padding: 1rem 0.5rem;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 0.9rem;
-            position: relative;
-            outline: none;
-        }
-
-        .tab-btn:hover {
-            color: var(--text-primary);
-        }
-
-        .tab-btn.active {
-            color: var(--blue);
-        }
-
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: var(--blue);
-        }
-
-        .container {
-            padding: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-        }
-
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-
-        .stat-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
-        .stat-value { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem; }
-        .stat-sub { font-size: 0.9rem; color: var(--text-muted); }
-
-        .btn {
-            background-color: var(--surface-2);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 0.875rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-        }
-
-        .btn:hover:not(:disabled) {
-            background-color: var(--border);
-        }
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-primary { background-color: var(--blue); border-color: var(--blue); }
-        .btn-primary:hover:not(:disabled) { background-color: #2563eb; }
-        .btn-danger { background-color: rgba(239, 68, 68, 0.1); border-color: var(--red); color: var(--red); }
-        .btn-danger:hover:not(:disabled) { background-color: rgba(239, 68, 68, 0.2); }
-
-        /* Form Controls */
-        .form-group { margin-bottom: 1rem; position: relative;}
-        .form-label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; }
-        .form-control {
-            width: 100%;
-            background-color: var(--bg);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            padding: 0.5rem;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 0.9rem;
-        }
-        
-        /* Tooltip */
-        [data-tooltip]:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%; left: 0;
-            background: #000;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            z-index: 10;
-        }
-
-        /* Progress Bar */
-        .progress-wrapper { margin-top: 1rem; }
-        .progress-bar-bg { background-color: var(--surface-2); border-radius: 999px; height: 12px; overflow: hidden; margin-bottom: 0.5rem;}
-        .progress-bar-fill { background-color: var(--blue); height: 100%; width: 0%; transition: width 0.3s; }
-        .progress-stats { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); }
-
-        /* Log window */
-        .log-window {
-            background-color: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            height: 400px;
-            overflow-y: auto;
-            padding: 1rem;
-            color: var(--text-muted);
-        }
-        .log-entry { margin-bottom: 0.25rem; }
-        .log-entry span.grade { color: var(--text-primary); font-weight: bold; }
-        
-        /* Episode viewer table */
-        .table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .table th, .table td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
-        .table th { color: var(--text-muted); font-weight: 500; }
-        .table tbody tr:hover { background-color: rgba(255,255,255,0.02); }
-
-        /* Stat Bars */
-        .stat-bar-container { margin-bottom: 0.75rem; }
-        .stat-bar-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem; }
-        .stat-bar-bg { background: var(--surface-2); height: 8px; border-radius: 4px; overflow: hidden; }
-        .stat-bar-fill { height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s; }
-        
-        .bar-good { background: var(--green); }
-        .bar-warning { background: var(--orange); }
-        .bar-critical { background: var(--red); }
-
-        .chart-container { position: relative; width: 100%; }
-
-        .spinner {
-            animation: rotate 2s linear infinite;
-            width: 16px; height: 16px;
-        }
-        .spinner .path {
-            stroke: currentColor; stroke-linecap: round;
-            animation: dash 1.5s ease-in-out infinite;
-        }
-        @keyframes rotate { 100% { transform: rotate(360deg); } }
-        @keyframes dash {
-            0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
-            50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
-            100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
-        }
-        
+        /* Layout */
+        .page { padding: 1.5rem 2rem; max-width: 1440px; margin: 0 auto; }
         .hidden { display: none !important; }
-        .spin-icon { animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .pane { display: none; }
+        .pane.active { display: block; }
+
+        /* Grid */
+        .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+        .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .g-sidebar { display: grid; grid-template-columns: 290px 1fr; gap: 1rem; }
+        .g-ep { display: grid; grid-template-columns: 340px 1fr; gap: 1rem; }
+
+        /* Cards */
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; }
+        .card-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.5rem; }
+        .card-value { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.2rem; }
+        .card-sub { font-size: 0.85rem; color: var(--muted); }
+        .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.45rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+        .btn:hover:not(:disabled) { background: var(--border); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-blue { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .btn-blue:hover:not(:disabled) { background: #2563eb; }
+        .btn-red { background: rgba(239,68,68,0.12); border-color: var(--red); color: var(--red); }
+        .btn-red:hover:not(:disabled) { background: rgba(239,68,68,0.2); }
+
+        /* Forms */
+        .form-row { margin-bottom: 0.875rem; }
+        .form-label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.25rem; }
+        .form-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.6rem; border-radius: 6px; font-size: 0.9rem; }
+        .form-input:focus { outline: none; border-color: var(--blue); }
+        .form-select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.6rem; border-radius: 6px; font-size: 0.9rem; }
+        .check-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.875rem; cursor: pointer; font-size: 0.875rem; color: var(--muted); }
+        .check-row input { cursor: pointer; accent-color: var(--blue); }
+
+        /* Log */
+        .log { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-family: monospace; font-size: 0.82rem; height: 380px; overflow-y: auto; padding: 0.75rem; color: var(--muted); }
+        .log-line { margin-bottom: 2px; line-height: 1.5; }
+
+        /* Progress bar */
+        .prog-wrap { margin-top: 1rem; }
+        .prog-bg { background: var(--surface2); border-radius: 999px; height: 8px; overflow: hidden; margin-bottom: 0.4rem; }
+        .prog-fill { height: 100%; width: 0%; background: var(--blue); transition: width 0.4s; }
+        .prog-stats { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
+
+        /* Stat bars */
+        .sbar { margin-bottom: 0.7rem; }
+        .sbar-hdr { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 3px; }
+        .sbar-bg { background: var(--surface2); height: 7px; border-radius: 4px; overflow: hidden; }
+        .sbar-fill { height: 100%; border-radius: 4px; transition: width 0.3s, background 0.3s; }
+
+        /* Table */
+        .tbl { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+        .tbl th { padding: 0.5rem; text-align: left; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+        .tbl td { padding: 0.45rem 0.5rem; border-bottom: 1px solid rgba(46,49,72,0.5); }
+        .tbl tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+        /* Chart wrapper */
+        .chart-wrap { position: relative; }
+
+        /* Status badge */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+        .badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+        .badge-blue  { background: rgba(59,130,246,0.15); color: var(--blue); }
+        .badge-muted { background: rgba(123,128,160,0.15); color: var(--muted); }
+
+        /* Error box */
+        .errbox { padding: 0.75rem 1rem; background: rgba(239,68,68,0.1); border: 1px solid var(--red); color: var(--red); border-radius: 6px; font-size: 0.875rem; margin-bottom: 1rem; }
+
+        /* Spin */
+        .spin { display: inline-block; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Divider */
+        hr { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+
+        /* Btn group */
+        .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+        /* Info section */
+        .info-section { margin-bottom: 1.5rem; }
+        .info-section h4 { font-size: 0.9rem; color: var(--blue); margin-bottom: 0.75rem; }
+        .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;}
+        .info-cell { background: var(--surface2); border-radius: 8px; padding: 0.75rem; font-size: 0.82rem; }
+        .info-cell strong { display: block; color: var(--text); margin-bottom: 2px; }
+        .info-cell span { color: var(--muted); }
+
+        .compare-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+        .compare-card h4 { font-size: 0.95rem; margin-bottom: 0.75rem; }
+        .compare-stat { display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.3rem; }
+        .compare-stat .label { color: var(--muted); }
     </style>
 </head>
 <body>
 
-    <header class="header">
-        <h1><i data-lucide="activity"></i> Human Life Simulator</h1>
-        <div style="display:flex; gap: 2rem; align-items: center">
-            <div id="sys-info" style="font-size: 0.85rem; color: var(--blue); background: rgba(59,130,246,0.1); padding: 4px 12px; border-radius: 999px; display:flex; gap:10px;">
-                <span>CPU: --%</span> | <span>RAM: --%</span> | <span>GPU: --</span>
-            </div>
-            <div id="env-info" class="stat-sub">Loading...</div>
-        </div>
-    </header>
+<header class="hdr">
+    <div class="hdr-title">🧠 Human Life Simulator — RL Dashboard</div>
+    <div class="hdr-right">
+        <span class="sys-pill" id="sys-pill">CPU: — | RAM: — | GPU: —</span>
+        <span class="env-tag" id="env-tag">Loading...</span>
+    </div>
+</header>
 
-    <nav class="tab-nav">
-        <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')"><i data-lucide="layout-dashboard" style="width:16px; margin-right:6px"></i>Overview</button>
-        <button class="tab-btn" data-tab="training" onclick="switchTab('training')"><i data-lucide="zap" style="width:16px; margin-right:6px"></i>Live Training</button>
-        <button class="tab-btn" data-tab="episode" onclick="switchTab('episode')"><i data-lucide="play-circle" style="width:16px; margin-right:6px"></i>Episode Viewer</button>
-        <button class="tab-btn" data-tab="analysis" onclick="switchTab('analysis')"><i data-lucide="bar-chart-2" style="width:16px; margin-right:6px"></i>Deep Analysis</button>
-        <button class="tab-btn" data-tab="info" onclick="switchTab('info')"><i data-lucide="info" style="width:16px; margin-right:6px"></i>Environment Info</button>
-    </nav>
+<nav class="tabs">
+    <button class="tab active" onclick="switchTab('overview', this)">📊 Overview</button>
+    <button class="tab" onclick="switchTab('training', this)">⚡ Live Training</button>
+    <button class="tab" onclick="switchTab('episode', this)">🎬 Episode Viewer</button>
+    <button class="tab" onclick="switchTab('info', this)">ℹ️ Environment Info</button>
+</nav>
 
-    <div class="container">
-        
-        <!-- OVERVIEW TAB -->
-        <div id="tab-overview" class="tab-content" style="display: block;">
-            <div class="grid-4" style="margin-bottom: 2rem;">
-                <div class="card">
-                    <div class="stat-label">Best Grade</div>
-                    <div class="stat-value" id="ov-best-grade">0.000</div>
-                    <div class="stat-sub" id="ov-best-label">-</div>
-                </div>
-                <div class="card">
-                    <div class="stat-label">Episodes Run</div>
-                    <div class="stat-value" id="ov-episodes">0 / 0</div>
-                    <div class="stat-sub" id="ov-episodes-pct">0% complete</div>
-                </div>
-                <div class="card">
-                    <div class="stat-label">Training Status</div>
-                    <div class="stat-value" id="ov-status" style="font-size: 1.25rem; display: flex; align-items:center; gap:8px">Idle</div>
-                    <div class="stat-sub" id="ov-time">0s elapsed</div>
-                </div>
-                <div class="card">
-                    <div class="stat-label">Learning Signal</div>
-                    <div class="stat-value" id="ov-signal-text" style="font-size: 1.2rem;">Unknown</div>
-                    <div class="stat-sub" id="ov-signal-gap">-</div>
-                </div>
-            </div>
+<div class="page">
 
-            <div class="card" style="margin-bottom: 2rem;">
-                <div class="stat-label">Training Progress</div>
-                <div class="chart-container" style="height: 300px;">
-                    <canvas id="ovChart"></canvas>
-                </div>
-            </div>
-
-            <div class="grid-3">
-                <div class="card">
-                    <h3 style="margin-bottom: 1rem;">🤖 Trained PPO</h3>
-                    <div style="margin-bottom: 0.5rem; color: var(--text-muted)">Grade: <span style="color:var(--text-primary); font-weight:bold" id="cp-train-grade">-</span></div>
-                    <div style="margin-bottom: 1.5rem; color: var(--text-muted)">Reward: <span style="color:var(--text-primary)" id="cp-train-reward">-</span></div>
-                    <button class="btn w-100" onclick="runCompare()">Refresh Compare</button>
-                </div>
-                <div class="card">
-                    <h3 style="margin-bottom: 1rem;">🧠 Greedy Agent</h3>
-                    <div style="margin-bottom: 0.5rem; color: var(--text-muted)">Grade: <span style="color:var(--text-primary); font-weight:bold" id="cp-greedy-grade">-</span></div>
-                    <div style="margin-bottom: 1.5rem; color: var(--text-muted)">Reward: <span style="color:var(--text-primary)" id="cp-greedy-reward">-</span></div>
-                </div>
-                <div class="card">
-                    <h3 style="margin-bottom: 1rem;">🎲 Random Agent</h3>
-                    <div style="margin-bottom: 0.5rem; color: var(--text-muted)">Grade: <span style="color:var(--text-primary); font-weight:bold" id="cp-random-grade">-</span></div>
-                    <div style="margin-bottom: 1.5rem; color: var(--text-muted)">Reward: <span style="color:var(--text-primary)" id="cp-random-reward">-</span></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- LIVE TRAINING TAB -->
-        <div id="tab-training" class="tab-content">
-            <div class="grid-2" style="grid-template-columns: 300px 1fr;">
-                <div class="card">
-                    <h3 style="margin-bottom: 1.5rem; font-size:1.1rem">⚙️ Configuration</h3>
-                    
-                    <div class="form-group" data-tooltip="Total episodes to train.">
-                        <label class="form-label">Total Episodes</label>
-                        <input type="number" id="hp-episodes" class="form-control" value="500">
-                    </div>
-                    <div class="form-group" data-tooltip="How fast the agent updates. Too high = unstable. Too low = slow.">
-                        <label class="form-label">Learning Rate</label>
-                        <input type="number" id="hp-lr" class="form-control" value="0.0003" step="0.0001">
-                    </div>
-                    <div class="form-group" data-tooltip="How much future rewards matter vs immediate ones. 0.99 = long-term.">
-                        <label class="form-label">Gamma</label>
-                        <input type="number" id="hp-gamma" class="form-control" value="0.99" step="0.01">
-                    </div>
-                    <div class="form-group" data-tooltip="Steps collected before each update.">
-                        <label class="form-label">N Steps</label>
-                        <input type="number" id="hp-nsteps" class="form-control" value="168">
-                    </div>
-                    <div class="form-group" data-tooltip="How many experiences to train on at once.">
-                        <label class="form-label">Batch Size</label>
-                        <input type="number" id="hp-batch" class="form-control" value="64">
-                    </div>
-                    <div class="form-group" data-tooltip="How many times to reuse each batch.">
-                        <label class="form-label">N Epochs</label>
-                        <input type="number" id="hp-epochs" class="form-control" value="10">
-                    </div>
-                    <div class="form-group" data-tooltip="Encourages exploration. Higher = more random early on.">
-                        <label class="form-label">Entropy Coef</label>
-                        <input type="number" id="hp-ent" class="form-control" value="0.01" step="0.01">
-                    </div>
-                    <div class="form-group" data-tooltip="Prevents too-large updates.">
-                        <label class="form-label">Clip Range</label>
-                        <input type="number" id="hp-clip" class="form-control" value="0.2" step="0.1">
-                    </div>
-
-                    <div class="form-group" style="display:flex; align-items:center; gap:0.5rem; margin-top:1.5rem" data-tooltip="Pick up exactly where the last training session left off.">
-                        <input type="checkbox" id="hp-resume" checked>
-                        <label class="form-label" style="margin:0">Resume existing model (if found)</label>
-                    </div>
-
-                    <div class="form-group" style="margin-top:1rem" data-tooltip="Train on GPU (CUDA) or CPU.">
-                        <label class="form-label">Compute Device</label>
-                        <select id="hp-device" class="form-control">
-                            <option value="cuda">GPU (CUDA)</option>
-                            <option value="cpu">CPU</option>
-                            <option value="auto">Auto</option>
-                        </select>
-                    </div>
-
-                    <div style="display:flex; gap:0.5rem; margin-top:1rem">
-                        <button id="btn-start" class="btn btn-primary" style="flex:1" onclick="startTraining()"><i data-lucide="play"></i> Start</button>
-                        <button id="btn-stop" class="btn btn-danger" style="flex:1" onclick="stopTraining()" disabled><i data-lucide="square"></i> Stop</button>
-                    </div>
-                </div>
-
-                <div class="card" style="display:flex; flex-direction:column;">
-                    <h3 style="margin-bottom: 1rem; font-size:1.1rem">📡 Live Feed</h3>
-                    <div id="live-log" class="log-window" style="flex:1;">
-                        <!-- logs go here -->
-                    </div>
-                    <div class="progress-wrapper">
-                        <div class="progress-bar-bg">
-                            <div id="prog-fill" class="progress-bar-fill"></div>
-                        </div>
-                        <div class="progress-stats">
-                            <span id="prog-text">0/0 (0%)</span>
-                            <span>Time: <span id="prog-elapsed">0s</span> | Est: <span id="prog-eta">-</span></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- EPISODE VIEWER TAB -->
-        <div id="tab-episode" class="tab-content">
-            <div class="card" style="margin-bottom: 1rem; display:flex; justify-content:space-between; align-items:center;">
-                <div style="display:flex; gap:0.5rem;">
-                    <button class="btn" onclick="runEpisode('trained')" id="btn-ep-trained">🤖 Trained Agent</button>
-                    <button class="btn" onclick="runEpisode('greedy')" id="btn-ep-greedy">🧠 Greedy Agent</button>
-                    <button class="btn" onclick="runEpisode('random')" id="btn-ep-random">🎲 Random Agent</button>
-                </div>
-                <div style="display:flex; gap:1rem; align-items:center;">
-                    <span class="stat-label" style="margin:0">Speed</span>
-                    <label style="font-size:0.85rem;"><input type="radio" name="speed" value="50" checked> Fast</label>
-                    <label style="font-size:0.85rem;"><input type="radio" name="speed" value="300"> Slow</label>
-                    <label style="font-size:0.85rem;"><input type="radio" name="speed" value="0"> Instant</label>
-                </div>
-            </div>
-            
-            <div id="ep-error" class="hidden" style="padding:1rem; background:rgba(239, 68, 68, 0.1); border:1px solid var(--red); color:var(--red); border-radius:6px; margin-bottom:1rem;"></div>
-
-            <div class="grid-2" style="grid-template-columns: 350px 1fr;" id="ep-workspace">
-                <div class="card" id="ep-stats-panel">
-                    <h3 style="margin-bottom: 1.5rem; font-size:1rem" id="ep-current-info">Step: 0/168</h3>
-                    <!-- Stat bars generated dynamically -->
-                    <div id="ep-bars"></div>
-                    
-                    <div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border)">
-                        <div style="font-size:2rem; font-weight:bold; text-align:center" id="ep-final-grade">-</div>
-                        <div style="text-align:center; color:var(--text-muted); font-size:0.9rem" id="ep-final-reward"></div>
-                    </div>
-                </div>
-
-                <div class="card" style="display:flex; flex-direction:column;">
-                    <div style="height: 400px; overflow-y:auto; border-bottom:1px solid var(--border);">
-                        <table class="table" id="ep-table">
-                            <thead>
-                                <tr>
-                                    <th>Step</th>
-                                    <th>Time</th>
-                                    <th>Action</th>
-                                    <th>Reward</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ANALYSIS TAB -->
-        <div id="tab-analysis" class="tab-content">
-            <div class="card" style="display:flex; align-items:center; justify-content:center; height:300px; color:var(--text-muted)">
-                [Run history analysis requires multiple recorded episodes in backend. History features will render here when history API has data.]
-            </div>
-            <div class="card mt-1" style="height:300px; margin-top:1rem">
-                <canvas id="analysisChart"></canvas>
-            </div>
-        </div>
-
-        <!-- INFO TAB -->
-        <div id="tab-info" class="tab-content">
+    <!-- ══════════════ OVERVIEW ══════════════ -->
+    <div id="pane-overview" class="pane active">
+        <div class="g4">
             <div class="card">
-                <h3 style="margin-bottom: 1rem;">Environment Rules</h3>
-                <pre id="info-pre" style="font-family:monospace; font-size:0.85rem; color:var(--text-muted); white-space:pre-wrap;"></pre>
+                <div class="card-title">Best Grade</div>
+                <div class="card-value" id="ov-grade">0.000</div>
+                <div class="card-sub" id="ov-grade-lbl">—</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Episodes Run</div>
+                <div class="card-value" id="ov-eps">0 / 0</div>
+                <div class="card-sub" id="ov-pct">0% complete</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Training Status</div>
+                <div class="card-value" style="font-size:1.2rem" id="ov-status">Idle</div>
+                <div class="card-sub" id="ov-time">—</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Avg Grade (last 10)</div>
+                <div class="card-value" id="ov-avg">0.000</div>
+                <div class="card-sub" id="ov-avg-lbl">—</div>
             </div>
         </div>
 
+        <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-title" style="margin-bottom:0.75rem">Training Progress — Grade per Episode</div>
+            <div class="chart-wrap" style="height:280px">
+                <canvas id="grade-chart"></canvas>
+            </div>
+        </div>
+
+        <div style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+            <span class="section-title" style="margin:0">Agent Comparison</span>
+            <button class="btn btn-blue" id="btn-compare" onclick="runCompare()">▶ Run Compare (all 3)</button>
+        </div>
+        <div id="compare-error" class="errbox hidden"></div>
+        <div class="g3" id="compare-grid">
+            <div class="compare-card">
+                <h4>🤖 Trained PPO</h4>
+                <div class="compare-stat"><span class="label">Grade</span><span id="cp-t-grade" style="font-weight:600">—</span></div>
+                <div class="compare-stat"><span class="label">Total Reward</span><span id="cp-t-reward">—</span></div>
+            </div>
+            <div class="compare-card">
+                <h4>🧠 Greedy Agent</h4>
+                <div class="compare-stat"><span class="label">Grade</span><span id="cp-g-grade" style="font-weight:600">—</span></div>
+                <div class="compare-stat"><span class="label">Total Reward</span><span id="cp-g-reward">—</span></div>
+            </div>
+            <div class="compare-card">
+                <h4>🎲 Random Agent</h4>
+                <div class="compare-stat"><span class="label">Grade</span><span id="cp-r-grade" style="font-weight:600">—</span></div>
+                <div class="compare-stat"><span class="label">Total Reward</span><span id="cp-r-reward">—</span></div>
+            </div>
+        </div>
+        <div id="cp-signal" style="margin-top:0.75rem; font-size:0.875rem; color:var(--muted)"></div>
     </div>
 
-    <script>
-        lucide.createIcons();
+    <!-- ══════════════ LIVE TRAINING ══════════════ -->
+    <div id="pane-training" class="pane">
+        <div class="g-sidebar">
+            <!-- Left: config -->
+            <div>
+                <!-- Preset Row -->
+                <div class="card" style="margin-bottom:1rem">
+                    <div class="section-title" style="margin-top:0">🚀 Engine Presets</div>
+                    <div class="btn-group" style="flex-wrap:wrap">
+                        <button class="btn btn-blue" onclick="setPreset('fast')">🏃 Fast</button>
+                        <button class="btn btn-blue" onclick="setPreset('balanced')">⚖️ Balanced</button>
+                        <button class="btn btn-blue" onclick="setPreset('deep')">🧠 Deep</button>
+                        <button class="btn btn-blue" onclick="setPreset('max')">🔥 Max GPU</button>
+                    </div>
+                </div>
 
-        // Color coding
-        function gradeColor(g) {
-            if (g < 0.20) return '#ef4444';
-            if (g < 0.35) return '#f97316';
-            if (g < 0.50) return '#eab308';
-            if (g < 0.65) return '#22c55e';
-            if (g < 0.80) return '#3b82f6';
-            return '#a855f7';
-        }
-        function gradeLabel(g) {
-            if (g < 0.20) return '💀 Burned Out';
-            if (g < 0.35) return '😓 Struggling';
-            if (g < 0.50) return '😐 Barely Passing';
-            if (g < 0.65) return '🙂 Average Student';
-            if (g < 0.80) return '😊 Good Student';
-            if (g < 0.90) return '🌟 Excellent Student';
-            return '🏆 Outstanding';
-        }
+                <div class="card">
+                    <div class="section-title">⚙️ Hyperparameters</div>
 
-        // Tab Switching
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(t => t.style.display='none');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`tab-${tabName}`).style.display = 'block';
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-        }
+                    <div class="form-row">
+                        <label class="form-label" title="Parallel environments hitting the GPU.">Parallel Envs (n_envs)</label>
+                        <input class="form-input" type="number" id="hp-nenvs" value="4" min="1" max="32">
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">Total Episodes</label>
+                        <input class="form-input" type="number" id="hp-eps" value="500" min="1">
+                    </div>
+                <div class="form-row">
+                    <label class="form-label" title="How fast the network updates. Too high = unstable. Too low = slow.">Learning Rate (?)</label>
+                    <input class="form-input" type="number" id="hp-lr" value="0.0003" step="0.00001">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" title="Discount factor. 0.99 = long-term thinker.">Gamma (?)</label>
+                    <input class="form-input" type="number" id="hp-gamma" value="0.99" step="0.001">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" title="Steps collected per update. 168 = 1 full episode.">N Steps (?)</label>
+                    <input class="form-input" type="number" id="hp-nsteps" value="168" min="1">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" title="Must be a divisor of n_steps.">Batch Size (?)</label>
+                    <input class="form-input" type="number" id="hp-batch" value="168" min="1">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" title="How many gradient updates per collected batch.">N Epochs (?)</label>
+                    <input class="form-input" type="number" id="hp-nepochs" value="10" min="1">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" title="Encourages exploration. Higher = more random.">Entropy Coef (?)</label>
+                    <input class="form-input" type="number" id="hp-ent" value="0.01" step="0.001">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" title="Limits policy update size. Keeps training stable.">Clip Range (?)</label>
+                    <input class="form-input" type="number" id="hp-clip" value="0.2" step="0.05">
+                </div>
 
-        // Chart.js Setup
-        Chart.defaults.color = '#7b80a0';
-        Chart.defaults.borderColor = '#2e3148';
-        Chart.defaults.font.family = 'Inter';
+                <hr>
 
-        let ovChartCtx = document.getElementById('ovChart').getContext('2d');
-        let ovChart = new Chart(ovChartCtx, {
-            type: 'line',
-            data: { labels: [], datasets: [
-                { label: 'Raw Grade', data: [], borderColor: 'rgba(59, 130, 246, 0.3)', borderWidth: 1, pointRadius: 0 },
-                { label: 'Rolling Avg (10)', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.1 }
-            ]},
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { y: { min: 0, max: 1 }, x: { grid: { display:false } } },
-                plugins: {
-                    annotation: {
-                        annotations: {
-                            line1: { type:'line', yMin: 0.35, yMax: 0.35, borderColor: '#f97316', borderDash: [5,5], label:{content:'Struggling', display:true, position:'end'} },
-                            line2: { type:'line', yMin: 0.65, yMax: 0.65, borderColor: '#22c55e', borderDash: [5,5], label:{content:'Good', display:true, position:'end'} }
-                        }
-                    }
-                }
-            }
+                <div class="form-row">
+                    <label class="form-label">Compute Device</label>
+                    <select class="form-select" id="hp-device">
+                        <option value="cpu">CPU</option>
+                        <option value="cuda">GPU (CUDA)</option>
+                        <option value="auto">Auto</option>
+                    </select>
+                </div>
+                <label class="check-row">
+                    <input type="checkbox" id="hp-resume" checked>
+                    Resume existing model (if found)
+                </label>
+
+                <div class="btn-group" style="margin-top:0.5rem">
+                    <button class="btn btn-blue" id="btn-start" onclick="startTraining()" style="flex:1">▶ Start Training</button>
+                    <button class="btn btn-red" id="btn-stop" onclick="stopTraining()" disabled style="flex:1">■ Stop</button>
+                </div>
+                <div id="train-error" class="errbox hidden" style="margin-top:0.75rem"></div>
+            </div>
+            </div>
+
+            <!-- Right: live feed -->
+            <div class="card" style="display:flex; flex-direction:column; gap:1rem">
+                <div class="section-title" style="margin:0">📡 Live Training Feed</div>
+                <div class="log" id="live-log">
+                    <span style="color:var(--muted); font-style:italic">Start training to see live updates here...</span>
+                </div>
+                <div class="prog-wrap">
+                    <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
+                    <div class="prog-stats">
+                        <span id="prog-txt">0 / 0 episodes (0%)</span>
+                        <span>Elapsed: <span id="prog-elapsed">—</span> | ETA: <span id="prog-eta">—</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ EPISODE VIEWER ══════════════ -->
+    <div id="pane-episode" class="pane">
+        <div class="card" style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem">
+            <div class="btn-group">
+                <button class="btn" id="btn-ep-trained" onclick="runEpisode('trained')">🤖 Trained Agent</button>
+                <button class="btn" id="btn-ep-greedy"  onclick="runEpisode('greedy')">🧠 Greedy Agent</button>
+                <button class="btn" id="btn-ep-random"  onclick="runEpisode('random')">🎲 Random Agent</button>
+            </div>
+            <div style="display:flex; gap:1rem; align-items:center; font-size:0.85rem; color:var(--muted)">
+                Speed:
+                <label><input type="radio" name="spd" value="50" checked> Fast</label>
+                <label><input type="radio" name="spd" value="300"> Slow</label>
+                <label><input type="radio" name="spd" value="0"> Instant</label>
+            </div>
+        </div>
+        <div id="ep-error" class="errbox hidden"></div>
+
+        <div class="g-ep">
+            <!-- Left: stat bars + summary -->
+            <div class="card">
+                <div style="font-size:0.85rem; color:var(--muted); margin-bottom:1rem" id="ep-step-info">Select an agent to run an episode</div>
+                <div id="ep-bars"></div>
+                <hr>
+                <div style="text-align:center">
+                    <div style="font-size:2rem; font-weight:700" id="ep-final-grade">—</div>
+                    <div style="font-size:0.875rem; color:var(--muted)" id="ep-final-info"></div>
+                </div>
+            </div>
+            <!-- Right: action log table -->
+            <div class="card" style="overflow:hidden; padding:0">
+                <div style="overflow-y:auto; height:520px">
+                    <table class="tbl" id="ep-table">
+                        <thead>
+                            <tr>
+                                <th>Step</th><th>Day/Time</th><th>Action</th>
+                                <th style="text-align:right">Reward</th><th style="text-align:right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ep-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ ENVIRONMENT INFO ══════════════ -->
+    <div id="pane-info" class="pane">
+        <div class="card" style="margin-bottom:1rem">
+            <div class="section-title">Environment Overview</div>
+            <div class="info-grid" id="env-overview-grid">
+                <div class="info-cell"><strong id="inf-name">—</strong><span>Name</span></div>
+                <div class="info-cell"><strong id="inf-version">—</strong><span>Version</span></div>
+                <div class="info-cell"><strong id="inf-eplen">—</strong><span>Episode Length</span></div>
+                <div class="info-cell"><strong id="inf-actions">—</strong><span>Action Count</span></div>
+            </div>
+        </div>
+        <div class="g2">
+            <div class="card">
+                <div class="section-title">All Actions</div>
+                <div id="actions-list" style="font-size:0.83rem; line-height:2; color:var(--muted)"></div>
+            </div>
+            <div class="card">
+                <div class="section-title">Stats Reference</div>
+                <table class="tbl" id="stats-table">
+                    <thead><tr><th>Stat</th><th>Min</th><th>Max</th></tr></thead>
+                    <tbody id="stats-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+/* ─── Utilities ─── */
+function gc(g) {
+    if (g < 0.20) return '#ef4444';
+    if (g < 0.35) return '#f97316';
+    if (g < 0.50) return '#eab308';
+    if (g < 0.65) return '#22c55e';
+    if (g < 0.80) return '#3b82f6';
+    return '#a855f7';
+}
+function gl(g) {
+    if (g < 0.20) return '💀 Burned Out';
+    if (g < 0.35) return '😓 Struggling';
+    if (g < 0.50) return '😐 Barely Passing';
+    if (g < 0.65) return '🙂 Average Student';
+    if (g < 0.80) return '😊 Good Student';
+    if (g < 0.90) return '🌟 Excellent';
+    return '🏆 Outstanding';
+}
+function fmt(n, d=3) { return (n ?? 0).toFixed(d); }
+function fmtTime(s) {
+    let m = Math.floor(s / 60), sec = s % 60;
+    return `${m}m ${sec}s`;
+}
+
+/* ─── Tab switching ─── */
+function switchTab(name, btn) {
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('pane-' + name).classList.add('active');
+    btn.classList.add('active');
+}
+
+/* ─── Grade chart ─── */
+Chart.defaults.color = '#7b80a0';
+Chart.defaults.borderColor = '#2e3148';
+Chart.defaults.font.family = 'Inter';
+
+const gradeCtx = document.getElementById('grade-chart').getContext('2d');
+const gradeChart = new Chart(gradeCtx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [
+            { label: 'Grade', data: [], borderColor: 'rgba(59,130,246,0.4)', borderWidth: 1, pointRadius: 0, fill: false },
+            { label: 'Rolling Avg (10)', data: [], borderColor: '#3b82f6', borderWidth: 2.5, pointRadius: 0, tension: 0.2, fill: false }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 0 },
+        scales: {
+            y: { min: 0, max: 1, ticks: { callback: v => v.toFixed(1) } },
+            x: { grid: { display: false } }
+        },
+        plugins: { legend: { position: 'top' } }
+    }
+});
+
+/* ─── Polling ─── */
+let pollTimer = null;
+let lastLoggedEp = 0;
+
+function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(pollStatus, 2000);
+    pollStatus();
+}
+function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+async function pollStatus() {
+    try {
+        const r = await fetch('/train/status');
+        if (!r.ok) return;
+        const d = await r.json();
+        applyStatus(d);
+        if (!d.is_training) stopPolling();
+    } catch(e) { /* network error, keep trying */ }
+}
+
+function applyStatus(d) {
+    const grades = d.episode_grades || [];
+    const ep = d.current_episode || 0;
+    const tot = d.total_episodes || 0;
+    const pct = tot > 0 ? (ep / tot * 100) : 0;
+    const best = d.best_grade || 0;
+    const avg = d.current_avg_grade || 0;
+    const elapsed = d.elapsed_seconds || 0;
+    const eta = d.estimated_remaining_seconds || 0;
+
+    /* Overview cards */
+    const el = v => el => el;
+    document.getElementById('ov-grade').textContent = fmt(best);
+    document.getElementById('ov-grade').style.color = gc(best);
+    document.getElementById('ov-grade-lbl').textContent = gl(best);
+    document.getElementById('ov-eps').textContent = `${ep} / ${tot}`;
+    document.getElementById('ov-pct').textContent = `${pct.toFixed(1)}% complete`;
+    document.getElementById('ov-avg').textContent = fmt(avg);
+    document.getElementById('ov-avg').style.color = gc(avg);
+    document.getElementById('ov-avg-lbl').textContent = gl(avg);
+
+    const statusEl = document.getElementById('ov-status');
+    if (d.is_training) {
+        statusEl.innerHTML = '<span class="spin">⟳</span> Training...';
+        statusEl.style.color = '#3b82f6';
+    } else if (d.is_complete) {
+        statusEl.textContent = '✅ Complete';
+        statusEl.style.color = '#22c55e';
+    } else {
+        statusEl.textContent = 'Idle';
+        statusEl.style.color = '';
+    }
+    document.getElementById('ov-time').textContent = `${fmtTime(elapsed)} elapsed`;
+
+    /* Progress bar */
+    document.getElementById('prog-fill').style.width = `${Math.min(pct, 100)}%`;
+    document.getElementById('prog-txt').textContent = `${ep} / ${tot} episodes (${pct.toFixed(1)}%)`;
+    document.getElementById('prog-elapsed').textContent = fmtTime(elapsed);
+    document.getElementById('prog-eta').textContent = eta > 0 ? fmtTime(eta) : '—';
+
+    /* Grade chart — full rebuild only if new data */
+    if (grades.length > 0) {
+        let rolling = grades.map((_, i) => {
+            if (i < 9) return null;
+            return grades.slice(i - 9, i + 1).reduce((a, b) => a + b, 0) / 10;
         });
+        gradeChart.data.labels = grades.map((_, i) => i + 1);
+        gradeChart.data.datasets[0].data = grades;
+        gradeChart.data.datasets[1].data = rolling;
+        gradeChart.update('none'); /* no animation for speed */
+    }
 
-        // Polling logic
-        let trainingInterval = null;
-        async function fetchStatus() {
-            try {
-                const res = await fetch('/train/status');
-                const data = await res.json();
-                updateDashboard(data);
-                if (!data.is_training) {
-                    stopPolling();
-                    document.getElementById('btn-start').disabled = false;
-                    document.getElementById('btn-stop').disabled = true;
-                    document.getElementById('ov-status').innerHTML = 'Idle';
-                }
-            } catch (e) {
-                console.error('API Error', e);
-            }
+    /* Live log — only append NEW episodes */
+    const newEps = grades.slice(lastLoggedEp);
+    if (newEps.length > 0) {
+        const log = document.getElementById('live-log');
+        /* Clear placeholder on first entry */
+        if (lastLoggedEp === 0) log.innerHTML = '';
+        newEps.forEach((g, i) => {
+            const epNum = lastLoggedEp + i + 1;
+            const color = gc(g);
+            const label = gl(g);
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            div.innerHTML = `<span style="color:var(--muted)">Ep ${String(epNum).padStart(4)}  │  Grade: </span><span style="color:${color};font-weight:600">${fmt(g)}</span><span style="color:var(--muted)">  │  ${label}</span>`;
+            log.appendChild(div);
+        });
+        log.scrollTop = log.scrollHeight;
+        lastLoggedEp = grades.length;
+    }
+
+    /* Button states */
+    if (d.is_training) {
+        document.getElementById('btn-start').disabled = true;
+        document.getElementById('btn-stop').disabled = false;
+    } else {
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-stop').disabled = true;
+    }
+}
+
+/* ─── Start / Stop training ─── */
+function setPreset(name) {
+    const p = {
+        'fast':     { n:4,  ep:300,  step:512,  batch:512,  epoch:10 },
+        'balanced': { n:8,  ep:1000, step:1024, batch:2048, epoch:10 },
+        'deep':     { n:16, ep:2000, step:2048, batch:4096, epoch:10 },
+        'max':      { n:32, ep:5000, step:2048, batch:8192, epoch:10 }
+    }[name];
+    if(!p) return;
+    document.getElementById('hp-nenvs').value = p.n;
+    document.getElementById('hp-eps').value = p.ep;
+    document.getElementById('hp-nsteps').value = p.step;
+    document.getElementById('hp-batch').value = p.batch;
+    document.getElementById('hp-nepochs').value = p.epoch;
+}
+
+async function startTraining() {
+    const errEl = document.getElementById('train-error');
+    errEl.classList.add('hidden');
+
+    const cfg = {
+        total_episodes: parseInt(document.getElementById('hp-eps').value) || 500,
+        learning_rate:  parseFloat(document.getElementById('hp-lr').value) || 0.0003,
+        gamma:          parseFloat(document.getElementById('hp-gamma').value) || 0.99,
+        n_steps:        parseInt(document.getElementById('hp-nsteps').value) || 168,
+        batch_size:     parseInt(document.getElementById('hp-batch').value) || 168,
+        n_epochs:       parseInt(document.getElementById('hp-nepochs').value) || 10,
+        ent_coef:       parseFloat(document.getElementById('hp-ent').value) || 0.01,
+        clip_range:     parseFloat(document.getElementById('hp-clip').value) || 0.2,
+        device:         document.getElementById('hp-device').value,
+        resume:         document.getElementById('hp-resume').checked,
+        n_envs:         parseInt(document.getElementById('hp-nenvs').value) || 4
+    };
+
+    lastLoggedEp = 0;
+    document.getElementById('live-log').innerHTML = '<span style="color:var(--blue)">Starting training...</span>';
+
+    try {
+        const r = await fetch('/train/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cfg)
+        });
+        const data = await r.json();
+        if (data.status === 'error') throw new Error(data.message);
+        startPolling();
+    } catch(e) {
+        errEl.textContent = 'Error: ' + e.message;
+        errEl.classList.remove('hidden');
+    }
+}
+
+async function stopTraining() {
+    document.getElementById('btn-stop').disabled = true;
+    await fetch('/train/stop', { method: 'POST' }).catch(() => {});
+}
+
+/* ─── Agent Compare ─── */
+async function runCompare() {
+    const btn = document.getElementById('btn-compare');
+    const errEl = document.getElementById('compare-error');
+    errEl.classList.add('hidden');
+    btn.disabled = true;
+    btn.textContent = '⟳ Running...';
+
+    try {
+        const r = await fetch('/agent/compare');
+        if (!r.ok) throw new Error(`Server error ${r.status}`);
+        const d = await r.json();
+
+        const sets = [
+            ['cp-t', d.trained],
+            ['cp-g', d.greedy],
+            ['cp-r', d.random]
+        ];
+        sets.forEach(([pfx, ag]) => {
+            document.getElementById(`${pfx}-grade`).textContent = fmt(ag.grade);
+            document.getElementById(`${pfx}-grade`).style.color = gc(ag.grade);
+            const rw = ag.reward;
+            document.getElementById(`${pfx}-reward`).textContent = (rw >= 0 ? '+' : '') + fmt(rw, 1);
+        });
+        document.getElementById('cp-signal').textContent = '📡 ' + (d.learning_signal || '');
+    } catch(e) {
+        errEl.textContent = 'Compare failed: ' + e.message + '. (Make sure trained_agent.zip exists)';
+        errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ Run Compare (all 3)';
+    }
+}
+
+/* ─── Episode Viewer ─── */
+let epCache = null;
+let epTimer = null;
+
+async function runEpisode(agentType) {
+    const errEl = document.getElementById('ep-error');
+    errEl.classList.add('hidden');
+    const btn = document.getElementById(`btn-ep-${agentType}`);
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⟳ Running...';
+    if (epTimer) { clearInterval(epTimer); epTimer = null; }
+
+    try {
+        const r = await fetch('/agent/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_type: agentType })
+        });
+        if (!r.ok) {
+            const err = await r.json();
+            throw new Error(err.detail || 'Episode run failed');
         }
+        epCache = await r.json();
+        startPlayback();
+    } catch(e) {
+        errEl.textContent = e.message;
+        errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+}
 
-        function startPolling() {
-            if (trainingInterval) clearInterval(trainingInterval);
-            fetchStatus(); // immediate
-            trainingInterval = setInterval(fetchStatus, 2000);
+function startPlayback() {
+    const steps = epCache.steps;
+    const speed = parseInt(document.querySelector('input[name="spd"]:checked').value);
+    const tbody = document.getElementById('ep-tbody');
+    tbody.innerHTML = '';
+    document.getElementById('ep-final-grade').textContent = '—';
+    document.getElementById('ep-final-info').textContent = '';
+    document.getElementById('ep-step-info').textContent = `Running ${epCache.agent_type} agent... (0/${steps.length} steps)`;
+
+    let i = 0;
+    function renderStep() {
+        const sc = steps[i];
+        document.getElementById('ep-step-info').textContent = `Step ${sc.step} / ${steps.length}  |  ${sc.day} ${sc.hour}:00  |  Action: ${sc.action}`;
+        renderBars(sc.stats);
+        appendRow(sc);
+        i++;
+        if (i >= steps.length) {
+            if (epTimer) clearInterval(epTimer);
+            finishEpisode();
         }
-        function stopPolling() {
-            if (trainingInterval) clearInterval(trainingInterval);
-            trainingInterval = null;
+    }
+
+    if (speed === 0) {
+        steps.forEach((sc, idx) => {
+            renderBars(sc.stats);
+            appendRow(sc);
+        });
+        finishEpisode();
+    } else {
+        epTimer = setInterval(renderStep, speed);
+    }
+}
+
+function appendRow(sc) {
+    const tbody = document.getElementById('ep-tbody');
+    const rw = sc.reward;
+    const col = rw > 0 ? 'var(--green)' : rw < 0 ? 'var(--red)' : 'var(--muted)';
+    
+    let evBadge = '';
+    if (sc.events && sc.events.length > 0) {
+        const uniqueEvents = [...new Set(sc.events)];
+        const evSummary = uniqueEvents.map(e => `[${e}]`).join(' ');
+        evBadge = `<br><span style="color:#d97706;font-size:0.8rem;text-wrap:wrap">💥 ${evSummary}</span>`;
+    }
+    
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td>${sc.step}</td>
+        <td>${sc.day} ${sc.hour}:00</td>
+        <td style="font-weight:500">${sc.action}${evBadge}</td>
+        <td style="text-align:right; color:${col}">${rw >= 0 ? '+' : ''}${fmt(rw, 2)}</td>
+        <td style="text-align:right; color:var(--muted)">${fmt(sc.total_reward, 1)}</td>
+    `;
+    tbody.appendChild(tr);
+    tr.scrollIntoView({ block: 'nearest' });
+}
+
+function renderBars(stats) {
+    const bars = [
+        { label: '⚡ Energy',     key: 'energy',       max: 100, invert: false },
+        { label: '😰 Stress',     key: 'stress',        max: 100, invert: true  },
+        { label: '📚 Academic',   key: 'academic',      max: 100, invert: false },
+        { label: '💪 Health',     key: 'health',        max: 100, invert: false },
+        { label: '😊 Happiness',  key: 'happiness',     max: 100, invert: false },
+        { label: '👥 Social',     key: 'social_bonds',  max: 100, invert: false },
+        { label: '💰 Money',      key: 'money',         max: 200, invert: false },
+        { label: '😴 Sleep Debt', key: 'sleep_debt',    max: 48,  invert: true  }
+    ];
+    const html = bars.map(b => {
+        const val = stats[b.key] ?? 0;
+        const pct = Math.min(100, Math.max(0, val / b.max * 100));
+        let color;
+        if (b.invert) {
+            color = pct > 60 ? 'var(--red)' : pct > 35 ? 'var(--orange)' : 'var(--green)';
+        } else {
+            color = pct < 25 ? 'var(--red)' : pct < 55 ? 'var(--orange)' : 'var(--green)';
         }
+        return `<div class="sbar">
+            <div class="sbar-hdr"><span>${b.label}</span><span>${typeof val === 'number' ? val.toFixed(1) : val}</span></div>
+            <div class="sbar-bg"><div class="sbar-fill" style="width:${pct}%; background:${color}"></div></div>
+        </div>`;
+    }).join('');
+    document.getElementById('ep-bars').innerHTML = html;
+}
 
-        // Action API
-        async function startTraining() {
-            let config = {
-                total_episodes: parseInt(document.getElementById('hp-episodes').value),
-                learning_rate: parseFloat(document.getElementById('hp-lr').value),
-                gamma: parseFloat(document.getElementById('hp-gamma').value),
-                n_steps: parseInt(document.getElementById('hp-nsteps').value),
-                batch_size: parseInt(document.getElementById('hp-batch').value),
-                n_epochs: parseInt(document.getElementById('hp-epochs').value),
-                ent_coef: parseFloat(document.getElementById('hp-ent').value),
-                clip_range: parseFloat(document.getElementById('hp-clip').value),
-                resume: document.getElementById('hp-resume').checked,
-                device: document.getElementById('hp-device').value
-            };
-            document.getElementById('btn-start').disabled = true;
-            document.getElementById('btn-stop').disabled = false;
-            document.getElementById('ov-status').innerHTML = '<i data-lucide="loader" class="spin-icon"></i> Training';
-            lucide.createIcons();
-            
-            await fetch('/train/start', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(config)
-            });
-            startPolling();
+function finishEpisode() {
+    const g = epCache.grade;
+    document.getElementById('ep-final-grade').textContent = fmt(g, 3);
+    document.getElementById('ep-final-grade').style.color = gc(g);
+    document.getElementById('ep-final-info').textContent = gl(g) + '  |  Reward: ' + fmt(epCache.total_reward, 1);
+    document.getElementById('ep-step-info').textContent = `Finished — ${epCache.steps.length} steps`;
+}
+
+/* ─── System Info ─── */
+async function fetchSysInfo() {
+    try {
+        const r = await fetch('/system/info');
+        if (!r.ok) return;
+        const d = await r.json();
+        const pill = document.getElementById('sys-pill');
+        let gpuText, gpuClass;
+        if (d.gpu_usable) {
+            gpuText  = `🟢 ${d.gpu_name} (GPU: ${d.gpu_util_pct || 0}% | VRAM: ${d.vram_used_mb}/${d.vram_total_mb} MB)`;
+            gpuClass = 'sys-pill-ok';
+        } else if (d.gpu_name && d.gpu_name !== 'None') {
+            gpuText  = `⚠️ ${d.gpu_name} (sm_${d.gpu_cc} — CPU mode)`;
+            gpuClass = 'sys-pill-warn';
+        } else {
+            gpuText  = 'GPU: N/A';
+            gpuClass = 'sys-pill-off';
         }
+        pill.className = `sys-pill ${gpuClass}`;
+        pill.textContent = `CPU: ${d.cpu_load}% | RAM: ${d.ram_usage_pct}% | ${gpuText}`;
+    } catch(e) {}
+}
 
-        async function stopTraining() {
-            document.getElementById('btn-stop').disabled = true;
-            await fetch('/train/stop', { method: 'POST' });
-        }
+/* ─── Environment Info ─── */
+async function loadEnvInfo() {
+    try {
+        const r = await fetch('/environment/info');
+        if (!r.ok) return;
+        const d = await r.json();
 
-        // Update UI
-        function updateDashboard(data) {
-            // Overview card
-            document.getElementById('ov-best-grade').textContent = data.best_grade.toFixed(3);
-            document.getElementById('ov-best-grade').style.color = gradeColor(data.best_grade);
-            document.getElementById('ov-best-label').textContent = gradeLabel(data.best_grade);
-            document.getElementById('ov-episodes').textContent = `${data.current_episode} / ${data.total_episodes}`;
-            document.getElementById('ov-episodes-pct').textContent = `${data.progress_pct.toFixed(1)}% complete`;
-            
-            if (data.is_training) {
-                document.getElementById('ov-status').innerHTML = '<i data-lucide="loader" class="spin-icon"></i> Training...';
-                lucide.createIcons();
-            }
-            
-            let m = Math.floor(data.elapsed_seconds / 60);
-            let s = data.elapsed_seconds % 60;
-            document.getElementById('ov-time').textContent = `${m}m ${s}s elapsed`;
+        document.getElementById('env-tag').textContent = `${d.name} v${d.version} · ${d.episode_length} steps`;
+        document.getElementById('inf-name').textContent = d.name;
+        document.getElementById('inf-version').textContent = `v${d.version}`;
+        document.getElementById('inf-eplen').textContent = `${d.episode_length} steps`;
+        document.getElementById('inf-actions').textContent = d.action_count;
 
-            // Live progress
-            document.getElementById('prog-fill').style.width = `${data.progress_pct}%`;
-            document.getElementById('prog-text').textContent = `${data.current_episode}/${data.total_episodes} (${data.progress_pct.toFixed(1)}%)`;
-            document.getElementById('prog-elapsed').textContent = `${m}m ${s}s`;
-            if (data.estimated_remaining_seconds > 0) {
-                let em = Math.floor(data.estimated_remaining_seconds / 60);
-                let es = Math.floor(data.estimated_remaining_seconds % 60);
-                document.getElementById('prog-eta').textContent = `${em}m ${es}s`;
-            } else {
-                 document.getElementById('prog-eta').textContent = "-";
-            }
+        document.getElementById('actions-list').innerHTML = (d.actions || [])
+            .map((a, i) => `<span style="display:inline-block; background:var(--surface2); border-radius:4px; padding:2px 8px; margin:2px; font-size:0.8rem;">${a}</span>`)
+            .join('');
 
-            // Sync charts
-            let history_grades = data.episode_grades || [];
-            let rolling = [];
-            for (let i=0; i<history_grades.length; i++) {
-                if (i < 9) rolling.push(null);
-                else {
-                    let sum = 0;
-                    for (let j=0; j<10; j++) sum += history_grades[i-j];
-                    rolling.push(sum/10);
-                }
-            }
-            
-            ovChart.data.labels = Array.from({length: history_grades.length}, (_, i) => i + 1);
-            ovChart.data.datasets[0].data = history_grades;
-            ovChart.data.datasets[1].data = rolling;
-            ovChart.update();
+        const statsTbody = document.getElementById('stats-tbody');
+        statsTbody.innerHTML = (d.stats || []).map(s =>
+            `<tr><td>${s.name}</td><td>${s.min}</td><td>${s.max}</td></tr>`
+        ).join('');
+    } catch(e) {}
+}
 
-            // Append live log
-            let logs = document.getElementById('live-log');
-            if (history_grades.length > 0) {
-                let lastEp = history_grades.length;
-                let lastG = history_grades[history_grades.length-1];
-                let lcolor = gradeColor(lastG);
-                logs.innerHTML += `<div class="log-entry">Ep ${lastEp.toString().padStart(4, ' ')} │ Grade: <span class="grade" style="color:${lcolor}">${lastG.toFixed(3)}</span> │ ${gradeLabel(lastG)}</div>`;
-                logs.scrollTop = logs.scrollHeight;
-            }
-        }
-
-        async function runCompare() {
-            let r = await fetch('/agent/compare');
-            let data = await r.json();
-            
-            document.getElementById('cp-train-grade').textContent = data.trained.grade.toFixed(3);
-            document.getElementById('cp-train-grade').style.color = gradeColor(data.trained.grade);
-            document.getElementById('cp-train-reward').textContent = (data.trained.reward > 0 ? '+' : '') + data.trained.reward.toFixed(1);
-            
-            document.getElementById('cp-greedy-grade').textContent = data.greedy.grade.toFixed(3);
-            document.getElementById('cp-greedy-grade').style.color = gradeColor(data.greedy.grade);
-            document.getElementById('cp-greedy-reward').textContent = (data.greedy.reward > 0 ? '+' : '') + data.greedy.reward.toFixed(1);
-
-            document.getElementById('cp-random-grade').textContent = data.random.grade.toFixed(3);
-            document.getElementById('cp-random-grade').style.color = gradeColor(data.random.grade);
-            document.getElementById('cp-random-reward').textContent = (data.random.reward > 0 ? '+' : '') + data.random.reward.toFixed(1);
-
-            document.getElementById('ov-signal-text').textContent = data.learning_signal.split("—")[0];
-            document.getElementById('ov-signal-gap').textContent = data.learning_signal.split("—")[1] || "";
-        }
-
-        let runCache = null;
-        async function runEpisode(agent_type) {
-            let errorBox = document.getElementById('ep-error');
-            errorBox.classList.add('hidden');
-            
-            let btn = document.getElementById(`btn-ep-${agent_type}`);
-            let oldText = btn.innerHTML;
-            btn.innerHTML = `<i data-lucide="loader" class="spin-icon"></i> Running...`;
-            lucide.createIcons();
-            
-            try {
-                let res = await fetch('/agent/run', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({agent_type: agent_type})
-                });
-                
-                if (!res.ok) {
-                    let err = await res.json();
-                    throw new Error(err.detail || 'Episode run failed');
-                }
-                
-                let data = await res.json();
-                runCache = data;
-                startPlayback();
-                
-            } catch (e) {
-                errorBox.textContent = e.message;
-                errorBox.classList.remove('hidden');
-            } finally {
-                btn.innerHTML = oldText;
-            }
-        }
-
-        // Playback logic
-        let plyInt = null;
-        function updateEpBars(stats) {
-            const layout = [
-                {id: 'energy', label: '⚡ Energy', max:100, val: stats.energy},
-                {id: 'stress', label: '😰 Stress', max:100, val: stats.stress, invert:true},
-                {id: 'academic', label: '📚 Academic', max:100, val: stats.academic_score || stats.academic},
-                {id: 'health', label: '💪 Health', max:100, val: stats.health},
-                {id: 'happiness', label: '😊 Happiness', max:100, val: stats.happiness},
-                {id: 'social', label: '👥 Social', max:100, val: stats.social_bonds || stats.social},
-                {id: 'money', label: '💰 Money', max:200, val: stats.money},
-                {id: 'sleepd', label: '😴 Sleep Debt', max:48, val: stats.sleep_debt, invert:true}
-            ];
-            
-            let html = '';
-            layout.forEach(l => {
-                let pct = Math.min(100, Math.max(0, (l.val||0) / l.max * 100));
-                let cClass = 'bar-good';
-                if (l.invert) {
-                    if (pct > 70) cClass = 'bar-critical';
-                    else if (pct > 40) cClass = 'bar-warning';
-                } else {
-                    if (pct < 30) cClass = 'bar-critical';
-                    else if (pct < 60) cClass = 'bar-warning';
-                }
-                
-                html += `
-                <div class="stat-bar-container">
-                    <div class="stat-bar-header"><span>${l.label}</span><span>${(l.val||0).toFixed(1)}</span></div>
-                    <div class="stat-bar-bg"><div class="stat-bar-fill ${cClass}" style="width: ${pct}%"></div></div>
-                </div>`;
-            });
-            document.getElementById('ep-bars').innerHTML = html;
-        }
-
-        function startPlayback() {
-            if (plyInt) clearInterval(plyInt);
-            let speed = parseInt(document.querySelector('input[name="speed"]:checked').value);
-            let steps = runCache.steps;
-            let i = 0;
-            
-            document.getElementById('ep-table').querySelector('tbody').innerHTML = '';
-            document.getElementById('ep-final-grade').textContent = '-';
-            document.getElementById('ep-final-reward').textContent = '';
-
-            function renderStep(sc) {
-                document.getElementById('ep-current-info').textContent = `Step: ${sc.step}/168 │ Rev: ${sc.reward.toFixed(2)}`;
-                updateEpBars(sc.stats);
-                
-                let tbody = document.getElementById('ep-table').querySelector('tbody');
-                let rewColor = sc.reward > 0 ? 'var(--green)' : sc.reward < 0 ? 'var(--red)' : 'var(--text-muted)';
-                let tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${sc.step}</td>
-                    <td>${sc.day} ${sc.hour}:00</td>
-                    <td style="font-weight:600">${sc.action}</td>
-                    <td style="color:${rewColor}">${sc.reward > 0 ? '+'+sc.reward.toFixed(2) : sc.reward.toFixed(2)}</td>
-                    <td>${sc.total_reward.toFixed(2)}</td>
-                `;
-                tbody.appendChild(tr);
-                tr.scrollIntoView();
-            }
-
-            if (speed === 0) {
-                steps.forEach(sc => renderStep(sc));
-                finishPlayback();
-            } else {
-                plyInt = setInterval(() => {
-                    renderStep(steps[i]);
-                    i++;
-                    if (i >= steps.length) {
-                        clearInterval(plyInt);
-                        finishPlayback();
-                    }
-                }, speed);
-            }
-        }
-
-        function finishPlayback() {
-            let g = runCache.grade;
-            document.getElementById('ep-final-grade').textContent = g.toFixed(3);
-            document.getElementById('ep-final-grade').style.color = gradeColor(g);
-            document.getElementById('ep-final-reward').textContent = `Total Reward: ${runCache.total_reward.toFixed(1)} \n ${gradeLabel(g)}`;
-        }
-
-        // Init
-        async function fetchSystemStats() {
-            try {
-                let sysR = await fetch('/system/info');
-                let sys = await sysR.json();
-                let gpuText = sys.cuda_available ? (sys.gpu_name.length > 15 ? sys.gpu_name.substring(0,15)+'...' : sys.gpu_name) : "N/A";
-                document.getElementById('sys-info').innerHTML = `<span><i data-lucide="cpu" style="width:12px; margin-right:4px"></i> CPU: ${sys.cpu_load}</span> | <span><i data-lucide="memory-stick" style="width:12px; margin-right:4px"></i> RAM: ${sys.ram_usage_pct}%</span> | <span><i data-lucide="monitor" style="width:12px; margin-right:4px"></i> GPU: ${gpuText}</span>`;
-                lucide.createIcons();
-            } catch(e) {}
-        }
-        
-        async function init() {
-            let r = await fetch('/environment/info');
-            let info = await r.json();
-            document.getElementById('env-info').textContent = `${info.name} v${info.version} • ${info.episode_length} steps`;
-            document.getElementById('info-pre').textContent = JSON.stringify(info, null, 2);
-            fetchStatus();
-            fetchSystemStats();
-            setInterval(fetchSystemStats, 5000);
-        }
-        init();
-
-    </script>
+/* ─── Init ─── */
+(async function init() {
+    await loadEnvInfo();
+    await fetchSysInfo();
+    setInterval(fetchSysInfo, 5000);
+    pollStatus(); /* get initial status silently */
+})();
+</script>
 </body>
 </html>

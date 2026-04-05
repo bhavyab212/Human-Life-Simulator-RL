@@ -1,4 +1,5 @@
 import numpy as np
+from scenarios import ScenarioEngine
 
 class HumanLifeSimulator:
     def __init__(self):
@@ -13,8 +14,14 @@ class HumanLifeSimulator:
             "all_nighter", "seek_peer_notes", "study_with_music", "pull_a_prank",
             "do_nothing", "half_study", "micro_socialize", "binge_eat",
             "nap_in_class", "plagiarize", "withdraw_from_course",
-            "help_a_friend_in_crisis"
+            "help_a_friend_in_crisis",
+            "apply_for_internship", "part_time_study_break", "visit_campus_clinic",
+            "attend_club_meeting", "buy_groceries", "stress_eat_late_night",
+            "all_day_grind", "sleep_schedule_reset", "visit_library",
+            "ask_professor_for_help", "self_care_day", "pull_all_nighter_group",
+            "online_course", "freelance_work", "decline_social_invite"
         ]
+        self.scenario_engine = ScenarioEngine()
         self.reset()
 
     def reset(self) -> dict:
@@ -90,9 +97,16 @@ class HumanLifeSimulator:
         self.binge_ate_last_step = False
         self.free_food_available = False
         self.last_call_family_step = 0
-        self.consecutive_walk_count = 0
         self.professor_cancelled = False
         self.friend_tutoring_active = 0
+        
+        # New Redesign Stats
+        self.financial_stress = 0.0
+        self.physical_fitness = 50.0
+        
+        self.scenario_active = False
+        self.scenario_domain_idx = 0
+        self.scenario_engine = ScenarioEngine()
         
         return self._get_obs()
 
@@ -131,10 +145,16 @@ class HumanLifeSimulator:
             "internship_unlocked": self.internship_unlocked,
             "helped_friend_in_crisis": self.helped_friend_in_crisis,
             "caffeine_crash_imminent": self.caffeine_crash_imminent,
-            "toxic_friend": self.toxic_friend
+            "toxic_friend": self.toxic_friend,
+            "financial_stress": self.financial_stress,
+            "physical_fitness": self.physical_fitness,
+            "scenario_active": self.scenario_active,
+            "scenario_domain_idx": self.scenario_domain_idx
         }
 
     def _clamp(self):
+        self.physical_fitness = max(0.0, min(100.0, self.physical_fitness))
+        self.financial_stress = max(0.0, min(100.0, self.financial_stress))
         self.energy = max(0.0, min(100.0, self.energy))
         self.happiness = max(0.0, min(100.0, self.happiness))
         self.health = max(0.0, min(100.0, self.health))
@@ -726,8 +746,119 @@ class HumanLifeSimulator:
         elif action == "help_a_friend_in_crisis":
             self.helped_friend_in_crisis = True
             self.friendship_depth[self.rng.choice(list(self.friendship_depth.keys()))] += 25
+            reward += 2.0
+
+        elif action == "apply_for_internship":
+            if self.academic_score > 75 and self.reputation > 70:
+                self.internship_unlocked = True
+                self.happiness += 20
+                reward += 10.0
+            else:
+                self.stress += 15
+                self.happiness -= 10
+                reward -= 5.0
+                
+        elif action == "part_time_study_break":
+            self.energy += 5
+            self.stress -= 5
+            self.academic_score += 1
+            reward += 0.5
+            
+        elif action == "visit_campus_clinic":
+            self.health += 30
+            self.energy -= 10
+            self.money -= 10
+            self.stress -= 10
+            reward += 2.0
+
+        elif action == "attend_club_meeting":
+            self.social_bonds += 10
+            self.reputation += 5
+            self.creativity += 5
+            self.energy -= 10
+            is_social = True
+            reward += 1.5
+
+        elif action == "buy_groceries":
+            self.money -= 40
+            self.health += 5
+            self.financial_stress += 10
+            self.energy -= 10
+            reward += 1.0
+
+        elif action == "stress_eat_late_night":
+            self.happiness += 10
+            self.stress -= 5
+            self.physical_fitness -= 5
+            self.health -= 5
+            self.energy -= 5
+            is_meal = True
+            reward -= 1.0
+
+        elif action == "all_day_grind":
+            self.academic_score += 25
+            self.energy = 0
+            self.stress += 30
+            self.social_bonds -= 10
+            reward += 3.0
+
+        elif action == "sleep_schedule_reset":
+            self.sleep_debt = 0
+            self.energy += 50
+            self.academic_score -= 10
+            self.social_bonds -= 5
+            reward += 1.5
+
+        elif action == "visit_library":
+            self.academic_score += 12
+            self.focus_level = min(10, self.focus_level + 3)
             self.energy -= 10
             reward += 2.0
+
+        elif action == "ask_professor_for_help":
+            if self.reputation > 40:
+                self.academic_score += 15
+                self.stress -= 10
+                reward += 3.0
+            else:
+                self.stress += 10
+                reward -= 1.0
+
+        elif action == "self_care_day":
+            self.stress -= 40
+            self.happiness += 20
+            self.health += 10
+            self.energy += 20
+            self.academic_score -= 15
+            reward += 2.0
+
+        elif action == "pull_all_nighter_group":
+            self.academic_score += 15
+            self.social_bonds += 15
+            self.energy = 0
+            self.stress += 20
+            self.sleep_debt += 8
+            is_social = True
+            reward += 2.0
+
+        elif action == "online_course":
+            self.academic_score += 5
+            self.creativity += 10
+            self.energy -= 10
+            reward += 1.5
+
+        elif action == "freelance_work":
+            self.money += 80
+            self.energy -= 25
+            self.stress += 15
+            self.financial_stress = max(0, self.financial_stress - 20)
+            reward += 2.0
+
+        elif action == "decline_social_invite":
+            self.self_discipline += 5
+            self.loneliness_streak += 12
+            self.stress -= 5
+            reward += 1.0
 
         # Streak resets for non-matching actions
         if action != "do_nothing": self.do_nothing_streak = 0
@@ -826,12 +957,31 @@ class HumanLifeSimulator:
         # Random Events Check
         self._check_random_events()
 
-        # Toxic friend interaction — only when socializing with THAT friend
+        # Toxic friend interaction
         if is_social:
             friend_interacted = self.rng.choice(list(self.friendship_depth.keys()))
             if friend_interacted == self.toxic_friend:
                 self.stress += 5
                 info["constraints_triggered"].append("Toxic friend interaction: hidden stress +5")
+
+        # SCENARIO PROCESSING
+        scenario_res = self.scenario_engine.step(self._get_obs(), action)
+        if scenario_res.get("deltas"):
+            for k, v in scenario_res["deltas"].items():
+                if hasattr(self, k):
+                    setattr(self, k, getattr(self, k) + v)
+                    
+        if scenario_res.get("message"):
+            info["events_fired"].append(scenario_res["message"])
+            
+        new_scen = self.scenario_engine.try_trigger(self._get_obs(), self.current_step)
+        if new_scen:
+            info["events_fired"].append(f"SCENARIO STARTED: {new_scen.title} - {new_scen.description}")
+            domains = ["Education", "Friendship", "Family", "Romance", "Identity", "Career", "Moral", "Mental_Health", "Money", "Societal"]
+            self.scenario_active = True
+            self.scenario_domain_idx = domains.index(new_scen.domain) if new_scen.domain in domains else 0
+        elif self.scenario_engine.active_scenario is None:
+            self.scenario_active = False
 
         # Advance Time
         self.hour_of_day += 1
