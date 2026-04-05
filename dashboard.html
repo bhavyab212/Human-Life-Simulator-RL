@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Life Simulator Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest"></script>
+
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface-2: #222533;
+            --border: #2e3148;
+            --text-primary: #e8eaf0;
+            --text-muted: #7b80a0;
+            --green: #22c55e;
+            --blue: #3b82f6;
+            --orange: #f97316;
+            --red: #ef4444;
+            --purple: #a855f7;
+            --yellow: #eab308;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .header {
+            background-color: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: 1rem;
+            padding: 0 2rem;
+            border-bottom: 1px solid var(--border);
+            background-color: var(--surface);
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 1rem 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            position: relative;
+            outline: none;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--blue);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--blue);
+        }
+
+        .container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+
+        .stat-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .stat-sub { font-size: 0.9rem; color: var(--text-muted); }
+
+        .btn {
+            background-color: var(--surface-2);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background-color: var(--border);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary { background-color: var(--blue); border-color: var(--blue); }
+        .btn-primary:hover:not(:disabled) { background-color: #2563eb; }
+        .btn-danger { background-color: rgba(239, 68, 68, 0.1); border-color: var(--red); color: var(--red); }
+        .btn-danger:hover:not(:disabled) { background-color: rgba(239, 68, 68, 0.2); }
+
+        /* Form Controls */
+        .form-group { margin-bottom: 1rem; position: relative;}
+        .form-label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .form-control {
+            width: 100%;
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        /* Tooltip */
+        [data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%; left: 0;
+            background: #000;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 10;
+        }
+
+        /* Progress Bar */
+        .progress-wrapper { margin-top: 1rem; }
+        .progress-bar-bg { background-color: var(--surface-2); border-radius: 999px; height: 12px; overflow: hidden; margin-bottom: 0.5rem;}
+        .progress-bar-fill { background-color: var(--blue); height: 100%; width: 0%; transition: width 0.3s; }
+        .progress-stats { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); }
+
+        /* Log window */
+        .log-window {
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            height: 400px;
+            overflow-y: auto;
+            padding: 1rem;
+            color: var(--text-muted);
+        }
+        .log-entry { margin-bottom: 0.25rem; }
+        .log-entry span.grade { color: var(--text-primary); font-weight: bold; }
+        
+        /* Episode viewer table */
+        .table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .table th, .table td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
+        .table th { color: var(--text-muted); font-weight: 500; }
+        .table tbody tr:hover { background-color: rgba(255,255,255,0.02); }
+
+        /* Stat Bars */
+        .stat-bar-container { margin-bottom: 0.75rem; }
+        .stat-bar-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem; }
+        .stat-bar-bg { background: var(--surface-2); height: 8px; border-radius: 4px; overflow: hidden; }
+        .stat-bar-fill { height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s; }
+        
+        .bar-good { background: var(--green); }
+        .bar-warning { background: var(--orange); }
+        .bar-critical { background: var(--red); }
+
+        .chart-container { position: relative; width: 100%; }
+
+        .spinner {
+            animation: rotate 2s linear infinite;
+            width: 16px; height: 16px;
+        }
+        .spinner .path {
+            stroke: currentColor; stroke-linecap: round;
+            animation: dash 1.5s ease-in-out infinite;
+        }
+        @keyframes rotate { 100% { transform: rotate(360deg); } }
+        @keyframes dash {
+            0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
+            50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
+            100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
+        }
+        
+        .hidden { display: none !important; }
+        .spin-icon { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <h1><i data-lucide="activity"></i> Human Life Simulator</h1>
+        <div style="display:flex; gap: 2rem; align-items: center">
+            <div id="sys-info" style="font-size: 0.85rem; color: var(--blue); background: rgba(59,130,246,0.1); padding: 4px 12px; border-radius: 999px; display:flex; gap:10px;">
+                <span>CPU: --%</span> | <span>RAM: --%</span> | <span>GPU: --</span>
+            </div>
+            <div id="env-info" class="stat-sub">Loading...</div>
+        </div>
+    </header>
+
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')"><i data-lucide="layout-dashboard" style="width:16px; margin-right:6px"></i>Overview</button>
+        <button class="tab-btn" data-tab="training" onclick="switchTab('training')"><i data-lucide="zap" style="width:16px; margin-right:6px"></i>Live Training</button>
+        <button class="tab-btn" data-tab="episode" onclick="switchTab('episode')"><i data-lucide="play-circle" style="width:16px; margin-right:6px"></i>Episode Viewer</button>
+        <button class="tab-btn" data-tab="analysis" onclick="switchTab('analysis')"><i data-lucide="bar-chart-2" style="width:16px; margin-right:6px"></i>Deep Analysis</button>
+        <button class="tab-btn" data-tab="info" onclick="switchTab('info')"><i data-lucide="info" style="width:16px; margin-right:6px"></i>Environment Info</button>
+    </nav>
+
+    <div class="container">
+        
+        <!-- OVERVIEW TAB -->
+        <div id="tab-overview" class="tab-content" style="display: block;">
+            <div class="grid-4" style="margin-bottom: 2rem;">
+                <div class="card">
+                    <div class="stat-label">Best Grade</div>
+                    <div class="stat-value" id="ov-best-grade">0.000</div>
+                    <div class="stat-sub" id="ov-best-label">-</div>
+                </div>
+                <div class="card">
+                    <div class="stat-label">Episodes Run</div>
+                    <div class="stat-value" id="ov-episodes">0 / 0</div>
+                    <div class="stat-sub" id="ov-episodes-pct">0% complete</div>
+                </div>
+                <div class="card">
+                    <div class="stat-label">Training Status</div>
+                    <div class="stat-value" id="ov-status" style="font-size: 1.25rem; display: flex; align-items:center; gap:8px">Idle</div>
+                    <div class="stat-sub" id="ov-time">0s elapsed</div>
+                </div>
+                <div class="card">
+                    <div class="stat-label">Learning Signal</div>
+                    <div class="stat-value" id="ov-signal-text" style="font-size: 1.2rem;">Unknown</div>
+                    <div class="stat-sub" id="ov-signal-gap">-</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 2rem;">
+                <div class="stat-label">Training Progress</div>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="ovChart"></canvas>
+                </div>
+            </div>
+
+            <div class="grid-3">
+                <div class="card">
+                    <h3 style="margin-bottom: 1rem;">🤖 Trained PPO</h3>
+                    <div style="margin-bottom: 0.5rem; color: var(--text-muted)">Grade: <span style="color:var(--text-primary); font-weight:bold" id="cp-train-grade">-</span></div>
+                    <div style="margin-bottom: 1.5rem; color: var(--text-muted)">Reward: <span style="color:var(--text-primary)" id="cp-train-reward">-</span></div>
+                    <button class="btn w-100" onclick="runCompare()">Refresh Compare</button>
+                </div>
+                <div class="card">
+                    <h3 style="margin-bottom: 1rem;">🧠 Greedy Agent</h3>
+                    <div style="margin-bottom: 0.5rem; color: var(--text-muted)">Grade: <span style="color:var(--text-primary); font-weight:bold" id="cp-greedy-grade">-</span></div>
+                    <div style="margin-bottom: 1.5rem; color: var(--text-muted)">Reward: <span style="color:var(--text-primary)" id="cp-greedy-reward">-</span></div>
+                </div>
+                <div class="card">
+                    <h3 style="margin-bottom: 1rem;">🎲 Random Agent</h3>
+                    <div style="margin-bottom: 0.5rem; color: var(--text-muted)">Grade: <span style="color:var(--text-primary); font-weight:bold" id="cp-random-grade">-</span></div>
+                    <div style="margin-bottom: 1.5rem; color: var(--text-muted)">Reward: <span style="color:var(--text-primary)" id="cp-random-reward">-</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LIVE TRAINING TAB -->
+        <div id="tab-training" class="tab-content">
+            <div class="grid-2" style="grid-template-columns: 300px 1fr;">
+                <div class="card">
+                    <h3 style="margin-bottom: 1.5rem; font-size:1.1rem">⚙️ Configuration</h3>
+                    
+                    <div class="form-group" data-tooltip="Total episodes to train.">
+                        <label class="form-label">Total Episodes</label>
+                        <input type="number" id="hp-episodes" class="form-control" value="500">
+                    </div>
+                    <div class="form-group" data-tooltip="How fast the agent updates. Too high = unstable. Too low = slow.">
+                        <label class="form-label">Learning Rate</label>
+                        <input type="number" id="hp-lr" class="form-control" value="0.0003" step="0.0001">
+                    </div>
+                    <div class="form-group" data-tooltip="How much future rewards matter vs immediate ones. 0.99 = long-term.">
+                        <label class="form-label">Gamma</label>
+                        <input type="number" id="hp-gamma" class="form-control" value="0.99" step="0.01">
+                    </div>
+                    <div class="form-group" data-tooltip="Steps collected before each update.">
+                        <label class="form-label">N Steps</label>
+                        <input type="number" id="hp-nsteps" class="form-control" value="168">
+                    </div>
+                    <div class="form-group" data-tooltip="How many experiences to train on at once.">
+                        <label class="form-label">Batch Size</label>
+                        <input type="number" id="hp-batch" class="form-control" value="64">
+                    </div>
+                    <div class="form-group" data-tooltip="How many times to reuse each batch.">
+                        <label class="form-label">N Epochs</label>
+                        <input type="number" id="hp-epochs" class="form-control" value="10">
+                    </div>
+                    <div class="form-group" data-tooltip="Encourages exploration. Higher = more random early on.">
+                        <label class="form-label">Entropy Coef</label>
+                        <input type="number" id="hp-ent" class="form-control" value="0.01" step="0.01">
+                    </div>
+                    <div class="form-group" data-tooltip="Prevents too-large updates.">
+                        <label class="form-label">Clip Range</label>
+                        <input type="number" id="hp-clip" class="form-control" value="0.2" step="0.1">
+                    </div>
+
+                    <div class="form-group" style="display:flex; align-items:center; gap:0.5rem; margin-top:1.5rem" data-tooltip="Pick up exactly where the last training session left off.">
+                        <input type="checkbox" id="hp-resume" checked>
+                        <label class="form-label" style="margin:0">Resume existing model (if found)</label>
+                    </div>
+
+                    <div class="form-group" style="margin-top:1rem" data-tooltip="Train on GPU (CUDA) or CPU.">
+                        <label class="form-label">Compute Device</label>
+                        <select id="hp-device" class="form-control">
+                            <option value="cuda">GPU (CUDA)</option>
+                            <option value="cpu">CPU</option>
+                            <option value="auto">Auto</option>
+                        </select>
+                    </div>
+
+                    <div style="display:flex; gap:0.5rem; margin-top:1rem">
+                        <button id="btn-start" class="btn btn-primary" style="flex:1" onclick="startTraining()"><i data-lucide="play"></i> Start</button>
+                        <button id="btn-stop" class="btn btn-danger" style="flex:1" onclick="stopTraining()" disabled><i data-lucide="square"></i> Stop</button>
+                    </div>
+                </div>
+
+                <div class="card" style="display:flex; flex-direction:column;">
+                    <h3 style="margin-bottom: 1rem; font-size:1.1rem">📡 Live Feed</h3>
+                    <div id="live-log" class="log-window" style="flex:1;">
+                        <!-- logs go here -->
+                    </div>
+                    <div class="progress-wrapper">
+                        <div class="progress-bar-bg">
+                            <div id="prog-fill" class="progress-bar-fill"></div>
+                        </div>
+                        <div class="progress-stats">
+                            <span id="prog-text">0/0 (0%)</span>
+                            <span>Time: <span id="prog-elapsed">0s</span> | Est: <span id="prog-eta">-</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EPISODE VIEWER TAB -->
+        <div id="tab-episode" class="tab-content">
+            <div class="card" style="margin-bottom: 1rem; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn" onclick="runEpisode('trained')" id="btn-ep-trained">🤖 Trained Agent</button>
+                    <button class="btn" onclick="runEpisode('greedy')" id="btn-ep-greedy">🧠 Greedy Agent</button>
+                    <button class="btn" onclick="runEpisode('random')" id="btn-ep-random">🎲 Random Agent</button>
+                </div>
+                <div style="display:flex; gap:1rem; align-items:center;">
+                    <span class="stat-label" style="margin:0">Speed</span>
+                    <label style="font-size:0.85rem;"><input type="radio" name="speed" value="50" checked> Fast</label>
+                    <label style="font-size:0.85rem;"><input type="radio" name="speed" value="300"> Slow</label>
+                    <label style="font-size:0.85rem;"><input type="radio" name="speed" value="0"> Instant</label>
+                </div>
+            </div>
+            
+            <div id="ep-error" class="hidden" style="padding:1rem; background:rgba(239, 68, 68, 0.1); border:1px solid var(--red); color:var(--red); border-radius:6px; margin-bottom:1rem;"></div>
+
+            <div class="grid-2" style="grid-template-columns: 350px 1fr;" id="ep-workspace">
+                <div class="card" id="ep-stats-panel">
+                    <h3 style="margin-bottom: 1.5rem; font-size:1rem" id="ep-current-info">Step: 0/168</h3>
+                    <!-- Stat bars generated dynamically -->
+                    <div id="ep-bars"></div>
+                    
+                    <div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border)">
+                        <div style="font-size:2rem; font-weight:bold; text-align:center" id="ep-final-grade">-</div>
+                        <div style="text-align:center; color:var(--text-muted); font-size:0.9rem" id="ep-final-reward"></div>
+                    </div>
+                </div>
+
+                <div class="card" style="display:flex; flex-direction:column;">
+                    <div style="height: 400px; overflow-y:auto; border-bottom:1px solid var(--border);">
+                        <table class="table" id="ep-table">
+                            <thead>
+                                <tr>
+                                    <th>Step</th>
+                                    <th>Time</th>
+                                    <th>Action</th>
+                                    <th>Reward</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ANALYSIS TAB -->
+        <div id="tab-analysis" class="tab-content">
+            <div class="card" style="display:flex; align-items:center; justify-content:center; height:300px; color:var(--text-muted)">
+                [Run history analysis requires multiple recorded episodes in backend. History features will render here when history API has data.]
+            </div>
+            <div class="card mt-1" style="height:300px; margin-top:1rem">
+                <canvas id="analysisChart"></canvas>
+            </div>
+        </div>
+
+        <!-- INFO TAB -->
+        <div id="tab-info" class="tab-content">
+            <div class="card">
+                <h3 style="margin-bottom: 1rem;">Environment Rules</h3>
+                <pre id="info-pre" style="font-family:monospace; font-size:0.85rem; color:var(--text-muted); white-space:pre-wrap;"></pre>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // Color coding
+        function gradeColor(g) {
+            if (g < 0.20) return '#ef4444';
+            if (g < 0.35) return '#f97316';
+            if (g < 0.50) return '#eab308';
+            if (g < 0.65) return '#22c55e';
+            if (g < 0.80) return '#3b82f6';
+            return '#a855f7';
+        }
+        function gradeLabel(g) {
+            if (g < 0.20) return '💀 Burned Out';
+            if (g < 0.35) return '😓 Struggling';
+            if (g < 0.50) return '😐 Barely Passing';
+            if (g < 0.65) return '🙂 Average Student';
+            if (g < 0.80) return '😊 Good Student';
+            if (g < 0.90) return '🌟 Excellent Student';
+            return '🏆 Outstanding';
+        }
+
+        // Tab Switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(t => t.style.display='none');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).style.display = 'block';
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        }
+
+        // Chart.js Setup
+        Chart.defaults.color = '#7b80a0';
+        Chart.defaults.borderColor = '#2e3148';
+        Chart.defaults.font.family = 'Inter';
+
+        let ovChartCtx = document.getElementById('ovChart').getContext('2d');
+        let ovChart = new Chart(ovChartCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                { label: 'Raw Grade', data: [], borderColor: 'rgba(59, 130, 246, 0.3)', borderWidth: 1, pointRadius: 0 },
+                { label: 'Rolling Avg (10)', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.1 }
+            ]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { min: 0, max: 1 }, x: { grid: { display:false } } },
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            line1: { type:'line', yMin: 0.35, yMax: 0.35, borderColor: '#f97316', borderDash: [5,5], label:{content:'Struggling', display:true, position:'end'} },
+                            line2: { type:'line', yMin: 0.65, yMax: 0.65, borderColor: '#22c55e', borderDash: [5,5], label:{content:'Good', display:true, position:'end'} }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Polling logic
+        let trainingInterval = null;
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/train/status');
+                const data = await res.json();
+                updateDashboard(data);
+                if (!data.is_training) {
+                    stopPolling();
+                    document.getElementById('btn-start').disabled = false;
+                    document.getElementById('btn-stop').disabled = true;
+                    document.getElementById('ov-status').innerHTML = 'Idle';
+                }
+            } catch (e) {
+                console.error('API Error', e);
+            }
+        }
+
+        function startPolling() {
+            if (trainingInterval) clearInterval(trainingInterval);
+            fetchStatus(); // immediate
+            trainingInterval = setInterval(fetchStatus, 2000);
+        }
+        function stopPolling() {
+            if (trainingInterval) clearInterval(trainingInterval);
+            trainingInterval = null;
+        }
+
+        // Action API
+        async function startTraining() {
+            let config = {
+                total_episodes: parseInt(document.getElementById('hp-episodes').value),
+                learning_rate: parseFloat(document.getElementById('hp-lr').value),
+                gamma: parseFloat(document.getElementById('hp-gamma').value),
+                n_steps: parseInt(document.getElementById('hp-nsteps').value),
+                batch_size: parseInt(document.getElementById('hp-batch').value),
+                n_epochs: parseInt(document.getElementById('hp-epochs').value),
+                ent_coef: parseFloat(document.getElementById('hp-ent').value),
+                clip_range: parseFloat(document.getElementById('hp-clip').value),
+                resume: document.getElementById('hp-resume').checked,
+                device: document.getElementById('hp-device').value
+            };
+            document.getElementById('btn-start').disabled = true;
+            document.getElementById('btn-stop').disabled = false;
+            document.getElementById('ov-status').innerHTML = '<i data-lucide="loader" class="spin-icon"></i> Training';
+            lucide.createIcons();
+            
+            await fetch('/train/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(config)
+            });
+            startPolling();
+        }
+
+        async function stopTraining() {
+            document.getElementById('btn-stop').disabled = true;
+            await fetch('/train/stop', { method: 'POST' });
+        }
+
+        // Update UI
+        function updateDashboard(data) {
+            // Overview card
+            document.getElementById('ov-best-grade').textContent = data.best_grade.toFixed(3);
+            document.getElementById('ov-best-grade').style.color = gradeColor(data.best_grade);
+            document.getElementById('ov-best-label').textContent = gradeLabel(data.best_grade);
+            document.getElementById('ov-episodes').textContent = `${data.current_episode} / ${data.total_episodes}`;
+            document.getElementById('ov-episodes-pct').textContent = `${data.progress_pct.toFixed(1)}% complete`;
+            
+            if (data.is_training) {
+                document.getElementById('ov-status').innerHTML = '<i data-lucide="loader" class="spin-icon"></i> Training...';
+                lucide.createIcons();
+            }
+            
+            let m = Math.floor(data.elapsed_seconds / 60);
+            let s = data.elapsed_seconds % 60;
+            document.getElementById('ov-time').textContent = `${m}m ${s}s elapsed`;
+
+            // Live progress
+            document.getElementById('prog-fill').style.width = `${data.progress_pct}%`;
+            document.getElementById('prog-text').textContent = `${data.current_episode}/${data.total_episodes} (${data.progress_pct.toFixed(1)}%)`;
+            document.getElementById('prog-elapsed').textContent = `${m}m ${s}s`;
+            if (data.estimated_remaining_seconds > 0) {
+                let em = Math.floor(data.estimated_remaining_seconds / 60);
+                let es = Math.floor(data.estimated_remaining_seconds % 60);
+                document.getElementById('prog-eta').textContent = `${em}m ${es}s`;
+            } else {
+                 document.getElementById('prog-eta').textContent = "-";
+            }
+
+            // Sync charts
+            let history_grades = data.episode_grades || [];
+            let rolling = [];
+            for (let i=0; i<history_grades.length; i++) {
+                if (i < 9) rolling.push(null);
+                else {
+                    let sum = 0;
+                    for (let j=0; j<10; j++) sum += history_grades[i-j];
+                    rolling.push(sum/10);
+                }
+            }
+            
+            ovChart.data.labels = Array.from({length: history_grades.length}, (_, i) => i + 1);
+            ovChart.data.datasets[0].data = history_grades;
+            ovChart.data.datasets[1].data = rolling;
+            ovChart.update();
+
+            // Append live log
+            let logs = document.getElementById('live-log');
+            if (history_grades.length > 0) {
+                let lastEp = history_grades.length;
+                let lastG = history_grades[history_grades.length-1];
+                let lcolor = gradeColor(lastG);
+                logs.innerHTML += `<div class="log-entry">Ep ${lastEp.toString().padStart(4, ' ')} │ Grade: <span class="grade" style="color:${lcolor}">${lastG.toFixed(3)}</span> │ ${gradeLabel(lastG)}</div>`;
+                logs.scrollTop = logs.scrollHeight;
+            }
+        }
+
+        async function runCompare() {
+            let r = await fetch('/agent/compare');
+            let data = await r.json();
+            
+            document.getElementById('cp-train-grade').textContent = data.trained.grade.toFixed(3);
+            document.getElementById('cp-train-grade').style.color = gradeColor(data.trained.grade);
+            document.getElementById('cp-train-reward').textContent = (data.trained.reward > 0 ? '+' : '') + data.trained.reward.toFixed(1);
+            
+            document.getElementById('cp-greedy-grade').textContent = data.greedy.grade.toFixed(3);
+            document.getElementById('cp-greedy-grade').style.color = gradeColor(data.greedy.grade);
+            document.getElementById('cp-greedy-reward').textContent = (data.greedy.reward > 0 ? '+' : '') + data.greedy.reward.toFixed(1);
+
+            document.getElementById('cp-random-grade').textContent = data.random.grade.toFixed(3);
+            document.getElementById('cp-random-grade').style.color = gradeColor(data.random.grade);
+            document.getElementById('cp-random-reward').textContent = (data.random.reward > 0 ? '+' : '') + data.random.reward.toFixed(1);
+
+            document.getElementById('ov-signal-text').textContent = data.learning_signal.split("—")[0];
+            document.getElementById('ov-signal-gap').textContent = data.learning_signal.split("—")[1] || "";
+        }
+
+        let runCache = null;
+        async function runEpisode(agent_type) {
+            let errorBox = document.getElementById('ep-error');
+            errorBox.classList.add('hidden');
+            
+            let btn = document.getElementById(`btn-ep-${agent_type}`);
+            let oldText = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader" class="spin-icon"></i> Running...`;
+            lucide.createIcons();
+            
+            try {
+                let res = await fetch('/agent/run', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({agent_type: agent_type})
+                });
+                
+                if (!res.ok) {
+                    let err = await res.json();
+                    throw new Error(err.detail || 'Episode run failed');
+                }
+                
+                let data = await res.json();
+                runCache = data;
+                startPlayback();
+                
+            } catch (e) {
+                errorBox.textContent = e.message;
+                errorBox.classList.remove('hidden');
+            } finally {
+                btn.innerHTML = oldText;
+            }
+        }
+
+        // Playback logic
+        let plyInt = null;
+        function updateEpBars(stats) {
+            const layout = [
+                {id: 'energy', label: '⚡ Energy', max:100, val: stats.energy},
+                {id: 'stress', label: '😰 Stress', max:100, val: stats.stress, invert:true},
+                {id: 'academic', label: '📚 Academic', max:100, val: stats.academic_score || stats.academic},
+                {id: 'health', label: '💪 Health', max:100, val: stats.health},
+                {id: 'happiness', label: '😊 Happiness', max:100, val: stats.happiness},
+                {id: 'social', label: '👥 Social', max:100, val: stats.social_bonds || stats.social},
+                {id: 'money', label: '💰 Money', max:200, val: stats.money},
+                {id: 'sleepd', label: '😴 Sleep Debt', max:48, val: stats.sleep_debt, invert:true}
+            ];
+            
+            let html = '';
+            layout.forEach(l => {
+                let pct = Math.min(100, Math.max(0, (l.val||0) / l.max * 100));
+                let cClass = 'bar-good';
+                if (l.invert) {
+                    if (pct > 70) cClass = 'bar-critical';
+                    else if (pct > 40) cClass = 'bar-warning';
+                } else {
+                    if (pct < 30) cClass = 'bar-critical';
+                    else if (pct < 60) cClass = 'bar-warning';
+                }
+                
+                html += `
+                <div class="stat-bar-container">
+                    <div class="stat-bar-header"><span>${l.label}</span><span>${(l.val||0).toFixed(1)}</span></div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill ${cClass}" style="width: ${pct}%"></div></div>
+                </div>`;
+            });
+            document.getElementById('ep-bars').innerHTML = html;
+        }
+
+        function startPlayback() {
+            if (plyInt) clearInterval(plyInt);
+            let speed = parseInt(document.querySelector('input[name="speed"]:checked').value);
+            let steps = runCache.steps;
+            let i = 0;
+            
+            document.getElementById('ep-table').querySelector('tbody').innerHTML = '';
+            document.getElementById('ep-final-grade').textContent = '-';
+            document.getElementById('ep-final-reward').textContent = '';
+
+            function renderStep(sc) {
+                document.getElementById('ep-current-info').textContent = `Step: ${sc.step}/168 │ Rev: ${sc.reward.toFixed(2)}`;
+                updateEpBars(sc.stats);
+                
+                let tbody = document.getElementById('ep-table').querySelector('tbody');
+                let rewColor = sc.reward > 0 ? 'var(--green)' : sc.reward < 0 ? 'var(--red)' : 'var(--text-muted)';
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${sc.step}</td>
+                    <td>${sc.day} ${sc.hour}:00</td>
+                    <td style="font-weight:600">${sc.action}</td>
+                    <td style="color:${rewColor}">${sc.reward > 0 ? '+'+sc.reward.toFixed(2) : sc.reward.toFixed(2)}</td>
+                    <td>${sc.total_reward.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+                tr.scrollIntoView();
+            }
+
+            if (speed === 0) {
+                steps.forEach(sc => renderStep(sc));
+                finishPlayback();
+            } else {
+                plyInt = setInterval(() => {
+                    renderStep(steps[i]);
+                    i++;
+                    if (i >= steps.length) {
+                        clearInterval(plyInt);
+                        finishPlayback();
+                    }
+                }, speed);
+            }
+        }
+
+        function finishPlayback() {
+            let g = runCache.grade;
+            document.getElementById('ep-final-grade').textContent = g.toFixed(3);
+            document.getElementById('ep-final-grade').style.color = gradeColor(g);
+            document.getElementById('ep-final-reward').textContent = `Total Reward: ${runCache.total_reward.toFixed(1)} \n ${gradeLabel(g)}`;
+        }
+
+        // Init
+        async function fetchSystemStats() {
+            try {
+                let sysR = await fetch('/system/info');
+                let sys = await sysR.json();
+                let gpuText = sys.cuda_available ? (sys.gpu_name.length > 15 ? sys.gpu_name.substring(0,15)+'...' : sys.gpu_name) : "N/A";
+                document.getElementById('sys-info').innerHTML = `<span><i data-lucide="cpu" style="width:12px; margin-right:4px"></i> CPU: ${sys.cpu_load}</span> | <span><i data-lucide="memory-stick" style="width:12px; margin-right:4px"></i> RAM: ${sys.ram_usage_pct}%</span> | <span><i data-lucide="monitor" style="width:12px; margin-right:4px"></i> GPU: ${gpuText}</span>`;
+                lucide.createIcons();
+            } catch(e) {}
+        }
+        
+        async function init() {
+            let r = await fetch('/environment/info');
+            let info = await r.json();
+            document.getElementById('env-info').textContent = `${info.name} v${info.version} • ${info.episode_length} steps`;
+            document.getElementById('info-pre').textContent = JSON.stringify(info, null, 2);
+            fetchStatus();
+            fetchSystemStats();
+            setInterval(fetchSystemStats, 5000);
+        }
+        init();
+
+    </script>
+</body>
+</html>

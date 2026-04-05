@@ -84,7 +84,7 @@ if __name__ == "__main__":
         clip_range      = 0.15,
         ent_coef        = 0.005,
         policy_kwargs   = dict(net_arch=dict(pi=[256, 256], vf=[256, 256])), # Deeper NN
-        device          = "cpu"
+        device          = "cuda"
     )
 
     model.learn(

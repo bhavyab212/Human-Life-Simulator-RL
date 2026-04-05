@@ -54,7 +54,7 @@ if __name__ == "__main__":
     time.sleep(1.0)
 
     env     = HumanLifeGymEnv()
-    model   = PPO.load("trained_agent", device="cpu")
+    model   = PPO.load("trained_agent", device="cuda")
     obs, _  = env.reset()
 
     done         = False
